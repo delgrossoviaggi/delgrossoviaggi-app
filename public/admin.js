@@ -1,13 +1,18 @@
-import { supabase } from "./supabase.js";
-import { listBookings } from "./bookings-store.js";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-const PASS = "del2025bus"; // cambia qui
+/* ==============================
+   CONFIG SUPABASE
+============================== */
+const SUPABASE_URL = "https://anecuxbekhdkxcwblhtm.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZWN1eGJla2hka3hjd2JsaHRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczNTc0ODgsImV4cCI6MjA4MjkzMzQ4OH0.DkxoFpEdoZZ8aOi_asRbhobJOpFVaog8lGzTfMKyATo";
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+/* ==============================
+   ELEMENTI DOM
+============================== */
 const authBox = document.getElementById("authBox");
 const panel = document.getElementById("panel");
-const adminPass = document.getElementById("adminPass");
 const loginBtn = document.getElementById("loginBtn");
-const logoutBtn = document.getElementById("logoutBtn");
 const adminMsg = document.getElementById("adminMsg");
 
 const posterTrip = document.getElementById("posterTrip");
@@ -16,145 +21,96 @@ const posterFile = document.getElementById("posterFile");
 const uploadPosterBtn = document.getElementById("uploadPosterBtn");
 const posterMsg = document.getElementById("posterMsg");
 
-const bookTrip = document.getElementById("bookTrip");
-const refreshBtn = document.getElementById("refreshBtn");
-const stats = document.getElementById("stats");
-const bookingsList = document.getElementById("bookingsList");
-const participants = document.getElementById("participants");
-
-function msg(el, t, ok = false) {
-  el.textContent = t || "";
-  el.style.color = ok ? "green" : "crimson";
-}
-
-function setAuthed(v) {
-  authBox.style.display = v ? "none" : "block";
-  panel.style.display = v ? "grid" : "none";
-  sessionStorage.setItem("dg_admin", v ? "1" : "0");
-}
-
-loginBtn.addEventListener("click", async () => {
-  if ((adminPass.value || "").trim() !== PASS) return msg(adminMsg, "Password errata ❌");
-  msg(adminMsg, "Accesso OK ✅", true);
-  setAuthed(true);
-  await boot();
-});
-
-logoutBtn.addEventListener("click", () => {
-  sessionStorage.removeItem("dg_admin");
-  setAuthed(false);
-  adminPass.value = "";
-  msg(adminMsg, "");
-});
-
-if (sessionStorage.getItem("dg_admin") === "1") {
-  setAuthed(true);
-  boot();
-}
-
-async function loadRoutes() {
-  const { data, error } = await supabase
-    .from("routes")
-    .select("id,name,active")
-    .eq("active", true)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-  return data || [];
-}
-
-async function renderRoutes() {
-  const routes = await loadRoutes();
-
-  posterTrip.innerHTML =
-    `<option value="">Seleziona…</option>` +
-    routes.map((r) => `<option value="${r.id}">${r.name}</option>`).join("");
-
-  bookTrip.innerHTML =
-    `<option value="">Tutti</option>` +
-    routes.map((r) => `<option value="${r.id}">${r.name}</option>`).join("");
-}
-
-async function uploadToStorage(file) {
-  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-  const path = `locandine/${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`;
-
-  const { error } = await supabase.storage.from("locandine").upload(path, file, { upsert: false });
-  if (error) throw error;
-
-  const { data } = supabase.storage.from("locandine").getPublicUrl(path);
-  return data.publicUrl;
-}
-
-uploadPosterBtn.addEventListener("click", async () => {
-  msg(posterMsg, "");
-  const routeId = posterTrip.value;
-  const title = (posterTitle.value || "").trim() || "Locandina";
-  const file = posterFile.files?.[0];
-
-  if (!routeId) return msg(posterMsg, "Seleziona un viaggio.");
-  if (!file) return msg(posterMsg, "Scegli un'immagine dal PC.");
-
-  try {
-    const url = await uploadToStorage(file);
-
-    const { error } = await supabase.from("posters").insert({
-      route_id: routeId,
-      title,
-      image_url: url,
-      active: true,
-    });
-    if (error) throw error;
-
-    posterTitle.value = "";
-    posterFile.value = "";
-    msg(posterMsg, "Locandina caricata ✅", true);
-  } catch (e) {
-    console.error(e);
-    msg(posterMsg, "Errore upload (console).");
-  }
-});
-
-function capacityFromBusType(busType) {
-  return (busType || "").includes("63") ? 63 : 53;
-}
-
-async function renderBookings() {
-  const routeId = bookTrip.value || undefined;
-  const bookings = await listBookings({ routeId });
-
-  bookingsList.innerHTML =
-    bookings
-      .map((b) => {
-        const seats = (b.seats || []).join(", ");
-        const n = (b.seats || []).length;
-        const when = b.created_at ? new Date(b.created_at).toLocaleString() : "";
-        const tripName = b.routes?.name || "";
-        return `• <b>${b.full_name}</b> (${b.phone}) — <b>${n}</b> posti [${seats}] <span style="color:#6b7280">(${tripName} • ${when})</span>`;
-      })
-      .join("<br/>") || "Nessuna prenotazione.";
-
-  // partecipanti per posto
-  const parts = [];
-  bookings.forEach((b) => (b.seats || []).forEach((s) => parts.push({ seat: Number(s), name: b.full_name, phone: b.phone })));
-  parts.sort((a, b) => a.seat - b.seat);
-  participants.innerHTML = parts.map((p) => `• Posto <b>${p.seat}</b> — ${p.name} (${p.phone})`).join("<br/>") || "Nessun partecipante.";
-
-  // alert 90% (per viaggio scelto)
-  if (routeId) {
-    const cap = capacityFromBusType(bookings[0]?.bus_type);
-    const taken = bookings.reduce((acc, b) => acc + ((b.seats || []).length), 0);
-    const pct = cap ? Math.round((taken / cap) * 100) : 0;
-    stats.innerHTML = `<b>Totale:</b> ${taken}/${cap} — <b>${pct}%</b>` + (pct >= 90 ? `<br><span style="color:crimson;font-weight:900">⚠️ Oltre 90% posti occupati</span>` : "");
+/* ==============================
+   LOGIN ADMIN (semplice)
+============================== */
+loginBtn.addEventListener("click", () => {
+  const pass = document.getElementById("adminPass").value;
+  if (pass === "admin123") {
+    authBox.style.display = "none";
+    panel.style.display = "grid";
+    loadViaggi();
   } else {
-    stats.textContent = "";
+    adminMsg.textContent = "Password errata ❌";
+    adminMsg.style.color = "red";
   }
+});
+
+/* ==============================
+   CARICA VIAGGI NEL SELECT
+============================== */
+async function loadViaggi() {
+  posterTrip.innerHTML = "<option>Caricamento...</option>";
+
+  const { data, error } = await supabase
+    .from("viaggi")
+    .select("*")
+    .order("data", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    posterTrip.innerHTML = "<option>Errore caricamento</option>";
+    return;
+  }
+
+  posterTrip.innerHTML = `<option value="">Seleziona viaggio</option>`;
+
+  data.forEach(v => {
+    const opt = document.createElement("option");
+    opt.value = v.id;
+    opt.textContent = `${v.titolo} – ${v.data}`;
+    posterTrip.appendChild(opt);
+  });
 }
 
-refreshBtn.addEventListener("click", () => renderBookings().catch(console.error));
-bookTrip.addEventListener("change", () => renderBookings().catch(console.error));
+/* ==============================
+   UPLOAD LOCANDINA
+============================== */
+uploadPosterBtn.addEventListener("click", async () => {
+  const tripId = posterTrip.value;
+  const title = posterTitle.value;
+  const file = posterFile.files[0];
 
-async function boot() {
-  await renderRoutes();
-  await renderBookings();
-}
+  if (!tripId || !file) {
+    posterMsg.textContent = "Seleziona viaggio e immagine";
+    posterMsg.style.color = "red";
+    return;
+  }
+
+  const fileName = `${Date.now()}_${file.name}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("locandine")
+    .upload(fileName, file);
+
+  if (uploadError) {
+    console.error(uploadError);
+    posterMsg.textContent = "Errore upload";
+    posterMsg.style.color = "red";
+    return;
+  }
+
+  const { data: urlData } = supabase.storage
+    .from("locandine")
+    .getPublicUrl(fileName);
+
+  const { error: insertError } = await supabase
+    .from("locandine")
+    .insert({
+      viaggio_id: tripId,
+      titolo: title || "",
+      image_url: urlData.publicUrl
+    });
+
+  if (insertError) {
+    console.error(insertError);
+    posterMsg.textContent = "Errore salvataggio DB";
+    posterMsg.style.color = "red";
+    return;
+  }
+
+  posterMsg.textContent = "Locandina caricata ✅";
+  posterMsg.style.color = "green";
+  posterFile.value = "";
+  posterTitle.value = "";
+});
