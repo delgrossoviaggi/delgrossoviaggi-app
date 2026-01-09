@@ -22,121 +22,139 @@ const stats = document.getElementById("stats");
 const bookingsList = document.getElementById("bookingsList");
 const participants = document.getElementById("participants");
 
-function msg(el, t, ok=false){
+function msg(el, t, ok = false) {
   el.textContent = t || "";
   el.style.color = ok ? "green" : "crimson";
 }
 
-function setAuthed(v){
+function setAuthed(v) {
   authBox.style.display = v ? "none" : "block";
   panel.style.display = v ? "grid" : "none";
   sessionStorage.setItem("dg_admin", v ? "1" : "0");
 }
 
-loginBtn.addEventListener("click", async ()=>{
-  if ((adminPass.value||"").trim() !== PASS) return msg(adminMsg, "Password errata ❌");
+loginBtn.addEventListener("click", async () => {
+  if ((adminPass.value || "").trim() !== PASS) return msg(adminMsg, "Password errata ❌");
   msg(adminMsg, "Accesso OK ✅", true);
   setAuthed(true);
   await boot();
 });
 
-logoutBtn.addEventListener("click", ()=>{
+logoutBtn.addEventListener("click", () => {
   sessionStorage.removeItem("dg_admin");
   setAuthed(false);
   adminPass.value = "";
   msg(adminMsg, "");
 });
 
-if (sessionStorage.getItem("dg_admin")==="1"){
+if (sessionStorage.getItem("dg_admin") === "1") {
   setAuthed(true);
   boot();
 }
 
-async function loadRoutes(){
-  const { data, error } = await supabase.from("routes").select("*").order("created_at",{ascending:false});
+async function loadRoutes() {
+  const { data, error } = await supabase
+    .from("routes")
+    .select("id,name,active")
+    .eq("active", true)
+    .order("created_at", { ascending: false });
+
   if (error) throw error;
   return data || [];
 }
 
-async function renderRoutes(){
+async function renderRoutes() {
   const routes = await loadRoutes();
-  const act = routes.filter(r=>r.active);
 
-  const optsPoster = `<option value="">Seleziona…</option>` + act.map(r=>`<option value="${r.name}">${r.name}</option>`).join("");
-  const optsBook = `<option value="">Tutti</option>` + act.map(r=>`<option value="${r.name}">${r.name}</option>`).join("");
+  posterTrip.innerHTML =
+    `<option value="">Seleziona…</option>` +
+    routes.map((r) => `<option value="${r.id}">${r.name}</option>`).join("");
 
-  posterTrip.innerHTML = optsPoster;
-  bookTrip.innerHTML = optsBook;
+  bookTrip.innerHTML =
+    `<option value="">Tutti</option>` +
+    routes.map((r) => `<option value="${r.id}">${r.name}</option>`).join("");
 }
 
-async function uploadToStorage(file){
+async function uploadToStorage(file) {
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
   const path = `locandine/${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`;
-  const { error } = await supabase.storage.from("locandine").upload(path, file, { upsert:false });
+
+  const { error } = await supabase.storage.from("locandine").upload(path, file, { upsert: false });
   if (error) throw error;
+
   const { data } = supabase.storage.from("locandine").getPublicUrl(path);
   return data.publicUrl;
 }
 
-uploadPosterBtn.addEventListener("click", async ()=>{
-  msg(posterMsg,"");
-  const trip = posterTrip.value;
-  const title = (posterTitle.value||"").trim() || "Locandina";
+uploadPosterBtn.addEventListener("click", async () => {
+  msg(posterMsg, "");
+  const routeId = posterTrip.value;
+  const title = (posterTitle.value || "").trim() || "Locandina";
   const file = posterFile.files?.[0];
 
-  if (!trip) return msg(posterMsg,"Seleziona un viaggio.");
-  if (!file) return msg(posterMsg,"Scegli un'immagine dal PC.");
+  if (!routeId) return msg(posterMsg, "Seleziona un viaggio.");
+  if (!file) return msg(posterMsg, "Scegli un'immagine dal PC.");
 
-  try{
+  try {
     const url = await uploadToStorage(file);
-    const { error } = await supabase.from("posters").insert({ trip_key: trip, title, image_url: url, active:true });
+
+    const { error } = await supabase.from("posters").insert({
+      route_id: routeId,
+      title,
+      image_url: url,
+      active: true,
+    });
     if (error) throw error;
 
-    posterTitle.value="";
-    posterFile.value="";
-    msg(posterMsg,"Locandina caricata ✅", true);
-  }catch(e){
+    posterTitle.value = "";
+    posterFile.value = "";
+    msg(posterMsg, "Locandina caricata ✅", true);
+  } catch (e) {
     console.error(e);
-    msg(posterMsg,"Errore upload (console).");
+    msg(posterMsg, "Errore upload (console).");
   }
 });
 
-function calcCap(bookings){
-  const any63 = bookings.some(b => (b.bus_type||"").includes("63"));
-  return any63 ? 63 : 53;
+function capacityFromBusType(busType) {
+  return (busType || "").includes("63") ? 63 : 53;
 }
 
-async function renderBookings(){
-  const trip = bookTrip.value || undefined;
-  const bookings = await listBookings({ tripKey: trip });
+async function renderBookings() {
+  const routeId = bookTrip.value || undefined;
+  const bookings = await listBookings({ routeId });
 
-  // lista prenotazioni
-  bookingsList.innerHTML = bookings.map(b=>{
-    const seats = (b.seats||[]).join(", ");
-    const n = (b.seats||[]).length;
-    const when = b.created_at ? new Date(b.created_at).toLocaleString() : "";
-    return `• <b>${b.full_name}</b> (${b.phone}) — <b>${n}</b> posti [${seats}] <span style="color:#6b7280">(${when})</span>`;
-  }).join("<br/>") || "Nessuna prenotazione.";
+  bookingsList.innerHTML =
+    bookings
+      .map((b) => {
+        const seats = (b.seats || []).join(", ");
+        const n = (b.seats || []).length;
+        const when = b.created_at ? new Date(b.created_at).toLocaleString() : "";
+        const tripName = b.routes?.name || "";
+        return `• <b>${b.full_name}</b> (${b.phone}) — <b>${n}</b> posti [${seats}] <span style="color:#6b7280">(${tripName} • ${when})</span>`;
+      })
+      .join("<br/>") || "Nessuna prenotazione.";
 
   // partecipanti per posto
   const parts = [];
-  bookings.forEach(b => (b.seats||[]).forEach(s => parts.push({ seat:Number(s), name:b.full_name, phone:b.phone })));
-  parts.sort((a,b)=>a.seat-b.seat);
+  bookings.forEach((b) => (b.seats || []).forEach((s) => parts.push({ seat: Number(s), name: b.full_name, phone: b.phone })));
+  parts.sort((a, b) => a.seat - b.seat);
+  participants.innerHTML = parts.map((p) => `• Posto <b>${p.seat}</b> — ${p.name} (${p.phone})`).join("<br/>") || "Nessun partecipante.";
 
-  participants.innerHTML = parts.map(p=>`• Posto <b>${p.seat}</b> — ${p.name} (${p.phone})`).join("<br/>") || "Nessun partecipante.";
-
-  // stats + alert 90%
-  const cap = calcCap(bookings);
-  const taken = bookings.reduce((acc,b)=>acc + ((b.seats||[]).length), 0);
-  const pct = cap ? Math.round((taken/cap)*100) : 0;
-
-  stats.innerHTML = `<b>Totale:</b> ${taken}/${cap} — <b>${pct}%</b>` + (pct>=90 ? `<br><span style="color:crimson;font-weight:900">⚠️ Oltre 90% posti occupati</span>` : "");
+  // alert 90% (per viaggio scelto)
+  if (routeId) {
+    const cap = capacityFromBusType(bookings[0]?.bus_type);
+    const taken = bookings.reduce((acc, b) => acc + ((b.seats || []).length), 0);
+    const pct = cap ? Math.round((taken / cap) * 100) : 0;
+    stats.innerHTML = `<b>Totale:</b> ${taken}/${cap} — <b>${pct}%</b>` + (pct >= 90 ? `<br><span style="color:crimson;font-weight:900">⚠️ Oltre 90% posti occupati</span>` : "");
+  } else {
+    stats.textContent = "";
+  }
 }
 
-refreshBtn.addEventListener("click", ()=> renderBookings().catch(console.error));
-bookTrip.addEventListener("change", ()=> renderBookings().catch(console.error));
+refreshBtn.addEventListener("click", () => renderBookings().catch(console.error));
+bookTrip.addEventListener("change", () => renderBookings().catch(console.error));
 
-async function boot(){
+async function boot() {
   await renderRoutes();
   await renderBookings();
 }
