@@ -1,116 +1,61 @@
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+import { supabase } from "./supabase.js";
 
-/* ==============================
-   CONFIG SUPABASE
-============================== */
-const SUPABASE_URL = "https://anecuxbekhdkxcwblhtm.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFuZWN1eGJla2hka3hjd2JsaHRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjczNTc0ODgsImV4cCI6MjA4MjkzMzQ4OH0.DkxoFpEdoZZ8aOi_asRbhobJOpFVaog8lGzTfMKyATo";
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+/* ===== LOGIN ADMIN ===== */
+const PASSWORD = "admin123"; // cambiala dopo
 
-/* ==============================
-   ELEMENTI DOM
-============================== */
-const authBox = document.getElementById("authBox");
-const panel = document.getElementById("panel");
-const loginBtn = document.getElementById("loginBtn");
-const adminMsg = document.getElementById("adminMsg");
-
-const posterTrip = document.getElementById("posterTrip");
-const posterTitle = document.getElementById("posterTitle");
-const posterFile = document.getElementById("posterFile");
-const uploadPosterBtn = document.getElementById("uploadPosterBtn");
-const posterMsg = document.getElementById("posterMsg");
-
-/* ==============================
-   LOGIN ADMIN (semplice)
-============================== */
-loginBtn.addEventListener("click", () => {
+document.getElementById("loginBtn").onclick = () => {
   const pass = document.getElementById("adminPass").value;
-  if (pass === "admin123") {
-    authBox.style.display = "none";
-    panel.style.display = "grid";
-    loadViaggi();
+  if (pass === admin123) {
+    document.getElementById("authBox").style.display = "none";
+    document.getElementById("panel").style.display = "grid";
+    loadTrips();
   } else {
-    adminMsg.textContent = "Password errata ❌";
-    adminMsg.style.color = "red";
+    alert("Password errata");
   }
-});
+};
 
-/* ==============================
-   CARICA VIAGGI NEL SELECT
-============================== */
-async function loadViaggi() {
-  posterTrip.innerHTML = "<option>Caricamento...</option>";
+/* ===== CARICA VIAGGI ===== */
+async function loadTrips() {
+  const { data } = await supabase
+    .from("percorsi")
+    .select("id, viaggio")
+    .eq("attivo", true);
 
-  const { data, error } = await supabase
-    .from("viaggi")
-    .select("*")
-    .order("data", { ascending: true });
+  const select = document.getElementById("posterTrip");
+  select.innerHTML = "";
 
-  if (error) {
-    console.error(error);
-    posterTrip.innerHTML = "<option>Errore caricamento</option>";
-    return;
-  }
-
-  posterTrip.innerHTML = `<option value="">Seleziona viaggio</option>`;
-
-  data.forEach(v => {
+  data.forEach(t => {
     const opt = document.createElement("option");
-    opt.value = v.id;
-    opt.textContent = `${v.titolo} – ${v.data}`;
-    posterTrip.appendChild(opt);
+    opt.value = t.id;
+    opt.textContent = t.viaggio;
+    select.appendChild(opt);
   });
 }
 
-/* ==============================
-   UPLOAD LOCANDINA
-============================== */
-uploadPosterBtn.addEventListener("click", async () => {
+/* ===== UPLOAD LOCANDINA ===== */
+document.getElementById("uploadPosterBtn").onclick = async () => {
   const tripId = posterTrip.value;
   const title = posterTitle.value;
   const file = posterFile.files[0];
 
-  if (!tripId || !file) {
-    posterMsg.textContent = "Seleziona viaggio e immagine";
-    posterMsg.style.color = "red";
-    return;
-  }
+  if (!tripId || !file) return alert("Dati mancanti");
 
-  const fileName = `${Date.now()}_${file.name}`;
+  const fileName = `${Date.now()}-${file.name}`;
 
-  const { error: uploadError } = await supabase.storage
+  await supabase.storage
     .from("locandine")
     .upload(fileName, file);
 
-  if (uploadError) {
-    console.error(uploadError);
-    posterMsg.textContent = "Errore upload";
-    posterMsg.style.color = "red";
-    return;
-  }
-
-  const { data: urlData } = supabase.storage
+  const { data } = supabase.storage
     .from("locandine")
     .getPublicUrl(fileName);
 
-  const { error: insertError } = await supabase
-    .from("locandine")
-    .insert({
-      viaggio_id: tripId,
-      titolo: title || "",
-      image_url: urlData.publicUrl
-    });
+  await supabase.from("manifesti").insert({
+    titolo: title,
+    viaggio_id: tripId,
+    url_immagine: data.publicUrl,
+    attivo: true
+  });
 
-  if (insertError) {
-    console.error(insertError);
-    posterMsg.textContent = "Errore salvataggio DB";
-    posterMsg.style.color = "red";
-    return;
-  }
-
-  posterMsg.textContent = "Locandina caricata ✅";
-  posterMsg.style.color = "green";
-  posterFile.value = "";
-  posterTitle.value = "";
-});
+  alert("Locandina caricata");
+};
