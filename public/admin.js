@@ -1,11 +1,11 @@
-import { supabase } from "./supabase.js";
+imimport { supabase } from "./supabase.js";
 
 /* ===== LOGIN ADMIN ===== */
 const PASSWORD = "admin123"; // cambiala dopo
 
 document.getElementById("loginBtn").onclick = () => {
   const pass = document.getElementById("adminPass").value;
-  if (pass === admin123) {
+  if (pass === PASSWORD) {
     document.getElementById("authBox").style.display = "none";
     document.getElementById("panel").style.display = "grid";
     loadTrips();
