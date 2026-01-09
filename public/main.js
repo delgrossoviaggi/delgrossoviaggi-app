@@ -1,168 +1,71 @@
 import { supabase } from "./supabase.js";
-import { loadPosters } from "./locandine.js";
-import { addBooking, getOccupiedSeats } from "./bookings-store.js";
-import { renderSeatMapGT53 } from "./seatmap-gt53.js";
-import { renderSeatMapGT63 } from "./seatmap-gt63.js";
+import { renderGT53 } from "./seatmap-gt53.js";
+import { renderGT63 } from "./seatmap-gt63.js";
 
-const seatMapEl = document.getElementById("seatMap");
-const seatErr = document.getElementById("seatErr");
-const selectedSeatsEl = document.getElementById("selectedSeats");
-const msgEl = document.getElementById("msg");
-const locandineMsg = document.getElementById("locandineMsg");
+const viaggioSelect = document.getElementById("viaggioSelect");
+const seatmapBox = document.getElementById("seatmap");
+const postiBox = document.getElementById("postiSelezionati");
+const locandineBox = document.getElementById("locandine");
 
-const tripSelect = document.getElementById("tripSelect");
-const busType = document.getElementById("busType");
+let postiSelezionati = [];
 
-const fullName = document.getElementById("fullName");
-const phone = document.getElementById("phone");
-const bookBtn = document.getElementById("bookBtn");
+/* =============================
+   CARICA VIAGGI
+============================= */
+async function loadViaggi() {
+  const { data } = await supabase.from("viaggi").select("*").order("data");
 
-function showSeatErr(e) {
-  if (!seatErr) return;
-  seatErr.textContent = "ERRORE: " + (e?.message || e);
-  seatErr.style.color = "crimson";
-  console.error(e);
-}
-window.addEventListener("error", (e) => showSeatErr(e.error || e.message));
-window.addEventListener("unhandledrejection", (e) => showSeatErr(e.reason));
+  viaggioSelect.innerHTML = `<option value="">Seleziona</option>`;
 
-function setMsg(text, ok = false) {
-  msgEl.textContent = text || "";
-  msgEl.style.color = ok ? "green" : "crimson";
-}
-
-const selected = new Set();
-let occupied = new Set();
-
-function updateSelected() {
-  const arr = [...selected].sort((a, b) => a - b);
-  selectedSeatsEl.textContent = arr.length ? arr.join(", ") : "Nessuno";
-}
-
-function toggleSeat(n) {
-  if (occupied.has(n)) return;
-  if (selected.has(n)) selected.delete(n);
-  else selected.add(n);
-  updateSelected();
-  renderSeat();
-}
-
-function renderSeat() {
-  if (✅seatErr) seatErr.textContent = "";
-  const options = { selected, occupied, onToggleSeat: toggleSeat };
-  if ((busType.value || "").includes("63")) renderSeatMapGT63(seatMapEl, options);
-  else renderSeatMapGT53(seatMapEl, options);
-}
-
-async function loadRoutes() {
-  const { data, error } = await supabase
-    .from("routes")
-    .select("id,name,active")
-    .eq("active", true)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-
-  tripSelect.innerHTML = `<option value="">Seleziona…</option>`;
-  (data || []).forEach((r) => {
+  data.forEach(v => {
     const opt = document.createElement("option");
-    opt.value = r.id;     // ✅ route_id
-    opt.textContent = r.name;
-    tripSelect.appendChild(opt);
+    opt.value = v.id;
+    opt.dataset.bus = v.bus; // GT53 / GT63
+    opt.textContent = v.titolo;
+    viaggioSelect.appendChild(opt);
   });
 }
+loadViaggi();
 
-async function refreshOccupied() {
-  if (!tripSelect.value) {
-    occupied = new Set();
-    renderSeat();
-    return;
+/* =============================
+   CAMBIO VIAGGIO
+============================= */
+viaggioSelect.addEventListener("change", e => {
+  seatmapBox.innerHTML = "";
+  postiSelezionati = [];
+  postiBox.textContent = "Nessuno";
+
+  const bus = e.target.selectedOptions[0]?.dataset.bus;
+  if (bus === "GT53") renderGT53(seatmapBox, onSeatClick);
+  if (bus === "GT63") renderGT63(seatmapBox, onSeatClick);
+});
+
+/* =============================
+   CLICK POSTO
+============================= */
+function onSeatClick(num, el) {
+  if (postiSelezionati.includes(num)) {
+    postiSelezionati = postiSelezionati.filter(p => p !== num);
+    el.classList.remove("selected");
+  } else {
+    postiSelezionati.push(num);
+    el.classList.add("selected");
   }
-  occupied = await getOccupiedSeats({
-    routeId: tripSelect.value,
-    busType: busType.value || null,
+  postiBox.textContent = postiSelezionati.join(", ") || "Nessuno";
+}
+
+/* =============================
+   LOCANDINE
+============================= */
+async function loadLocandine() {
+  const { data } = await supabase.from("locandine").select("*");
+
+  locandineBox.innerHTML = "";
+  data.forEach(l => {
+    const div = document.createElement("div");
+    div.className = "locandina";
+    div.innerHTML = `<img src="${l.image_url}"><div class="cap">${l.titolo}</div>`;
+    locandineBox.appendChild(div);
   });
-
-  for (const s of [...selected]) if (occupied.has(s)) selected.delete(s);
-  updateSelected();
-  renderSeat();
 }
-
-bookBtn.addEventListener("click", async () => {
-  setMsg("");
-  const routeId = tripSelect.value;
-  const name = (fullName.value || "").trim();
-  const tel = (phone.value || "").trim();
-  const seats = [...selected].sort((a, b) => a - b);
-
-  if (!routeId) return setMsg("Seleziona un viaggio.");
-  if (!name) return setMsg("Inserisci Nome e Cognome.");
-  if (!tel) return setMsg("Inserisci telefono.");
-  if (!seats.length) return setMsg("Seleziona almeno 1 posto.");
-
-  await refreshOccupied();
-  const clash = seats.find((s) => occupied.has(s));
-  if (clash) return setMsg(`Il posto ${clash} è già occupato.`);
-
-  try {
-    await addBooking({
-      route_id: routeId,
-      full_name: name,
-      phone: tel,
-      seats,
-      bus_type: busType.value || "GT-53",
-    });
-
-    setMsg("Prenotazione salvata ✅", true);
-    selected.clear();
-    updateSelected();
-    await refreshOccupied();
-  } catch (e) {
-    setMsg("Errore salvataggio (vedi console).");
-    console.error(e);
-  }
-});
-
-tripSelect.addEventListener("change", async () => {
-  selected.clear();
-  updateSelected();
-  await refreshOccupied();
-});
-
-busType.addEventListener("change", async () => {
-  selected.clear();
-  updateSelected();
-  await refreshOccupied();
-});
-
-window.addEventListener("posterChosen", async (e) => {
-  const p = e.detail;
-  if (p?.route_id) {
-    tripSelect.value = p.route_id; // ✅
-    selected.clear();
-    updateSelected();
-    await refreshOccupied();
-  }
-});
-
-async function boot() {
-  renderSeat();
-  updateSelected();
-
-  await loadRoutes();
-
-  try {
-    await loadPosters();
-    if (locandineMsg) locandineMsg.textContent = "";
-  } catch (e) {
-    if (locandineMsg) {
-      locandineMsg.textContent = "Errore locandine (console).";
-      locandineMsg.style.color = "crimson";
-    }
-    console.error(e);
-  }
-
-  await refreshOccupied();
-}
-
-boot().catch(showSeatErr);
+loadLocandine();
