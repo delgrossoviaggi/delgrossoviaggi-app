@@ -11,8 +11,6 @@ const msgEl = document.getElementById("msg");
 const locandineMsg = document.getElementById("locandineMsg");
 
 const tripSelect = document.getElementById("tripSelect");
-const travelDate = document.getElementById("travelDate");
-const departure = document.getElementById("departure");
 const busType = document.getElementById("busType");
 
 const fullName = document.getElementById("fullName");
@@ -50,7 +48,7 @@ function toggleSeat(n) {
 }
 
 function renderSeat() {
-  if (seatErr) seatErr.textContent = "";
+  if (✅seatErr) seatErr.textContent = "";
   const options = { selected, occupied, onToggleSeat: toggleSeat };
   if ((busType.value || "").includes("63")) renderSeatMapGT63(seatMapEl, options);
   else renderSeatMapGT53(seatMapEl, options);
@@ -59,15 +57,16 @@ function renderSeat() {
 async function loadRoutes() {
   const { data, error } = await supabase
     .from("routes")
-    .select("*")
+    .select("id,name,active")
     .eq("active", true)
     .order("created_at", { ascending: false });
+
   if (error) throw error;
 
   tripSelect.innerHTML = `<option value="">Seleziona…</option>`;
-  (data || []).forEach(r => {
+  (data || []).forEach((r) => {
     const opt = document.createElement("option");
-    opt.value = r.name;
+    opt.value = r.id;     // ✅ route_id
     opt.textContent = r.name;
     tripSelect.appendChild(opt);
   });
@@ -80,8 +79,7 @@ async function refreshOccupied() {
     return;
   }
   occupied = await getOccupiedSeats({
-    tripKey: tripSelect.value,
-    travelDate: travelDate.value || null,
+    routeId: tripSelect.value,
     busType: busType.value || null,
   });
 
@@ -92,30 +90,29 @@ async function refreshOccupied() {
 
 bookBtn.addEventListener("click", async () => {
   setMsg("");
-  const trip = tripSelect.value;
+  const routeId = tripSelect.value;
   const name = (fullName.value || "").trim();
   const tel = (phone.value || "").trim();
   const seats = [...selected].sort((a, b) => a - b);
 
-  if (!trip) return setMsg("Seleziona un viaggio.");
+  if (!routeId) return setMsg("Seleziona un viaggio.");
   if (!name) return setMsg("Inserisci Nome e Cognome.");
   if (!tel) return setMsg("Inserisci telefono.");
   if (!seats.length) return setMsg("Seleziona almeno 1 posto.");
 
   await refreshOccupied();
-  const clash = seats.find(s => occupied.has(s));
+  const clash = seats.find((s) => occupied.has(s));
   if (clash) return setMsg(`Il posto ${clash} è già occupato.`);
 
   try {
     await addBooking({
-      trip_key: trip,
-      travel_date: travelDate.value || null,
-      departure: (departure.value || "").trim() || null,
-      bus_type: busType.value || null,
+      route_id: routeId,
       full_name: name,
       phone: tel,
       seats,
+      bus_type: busType.value || "GT-53",
     });
+
     setMsg("Prenotazione salvata ✅", true);
     selected.clear();
     updateSelected();
@@ -127,18 +124,23 @@ bookBtn.addEventListener("click", async () => {
 });
 
 tripSelect.addEventListener("change", async () => {
-  selected.clear(); updateSelected(); await refreshOccupied();
+  selected.clear();
+  updateSelected();
+  await refreshOccupied();
 });
-travelDate.addEventListener("change", refreshOccupied);
+
 busType.addEventListener("change", async () => {
-  selected.clear(); updateSelected(); await refreshOccupied();
+  selected.clear();
+  updateSelected();
+  await refreshOccupied();
 });
 
 window.addEventListener("posterChosen", async (e) => {
   const p = e.detail;
-  if (p?.trip_key) {
-    tripSelect.value = p.trip_key;
-    selected.clear(); updateSelected();
+  if (p?.route_id) {
+    tripSelect.value = p.route_id; // ✅
+    selected.clear();
+    updateSelected();
     await refreshOccupied();
   }
 });
@@ -151,13 +153,16 @@ async function boot() {
 
   try {
     await loadPosters();
-    locandineMsg.textContent = "";
+    if (locandineMsg) locandineMsg.textContent = "";
   } catch (e) {
-    locandineMsg.textContent = "Errore locandine (console).";
-    locandineMsg.style.color = "crimson";
+    if (locandineMsg) {
+      locandineMsg.textContent = "Errore locandine (console).";
+      locandineMsg.style.color = "crimson";
+    }
     console.error(e);
   }
 
   await refreshOccupied();
 }
+
 boot().catch(showSeatErr);
