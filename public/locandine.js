@@ -1,10 +1,6 @@
 import { supabase } from "./supabase.js";
 
-/**
- * Carica locandine (manifesti) del viaggio selezionato
- * Tabella: manifesti
- * Colonne: id, percorso_id, titolo, image_url, attivo, creato_a
- */
+// Carica locandine (manifesti) del viaggio selezionato
 export async function loadPostersForTrip(percorso_id) {
   const grid = document.getElementById("locandineGrid");
   const msg = document.getElementById("locandineMsg");
@@ -15,7 +11,7 @@ export async function loadPostersForTrip(percorso_id) {
 
   const { data, error } = await supabase
     .from("manifesti")
-    .select("id, titolo, image_url, attivo, creato_a, percorso_id")
+    .select("id, titolo, image_url, attivo, creato_a")
     .eq("attivo", true)
     .eq("percorso_id", percorso_id)
     .order("creato_a", { ascending: false });
@@ -42,17 +38,8 @@ export async function loadPostersForTrip(percorso_id) {
       <div class="cap">${p.titolo || "Locandina"}</div>
     `;
 
-    // ✅ CLICK → apre il modal in index.html (evento posterChosen)
     card.addEventListener("click", () => {
-      window.dispatchEvent(
-        new CustomEvent("posterChosen", {
-          detail: {
-            image_url: p.image_url,
-            titolo: p.titolo || "Locandina",
-            extra: p.creato_a ? `Caricata il: ${String(p.creato_a).slice(0, 10)}` : "",
-          },
-        })
-      );
+      window.dispatchEvent(new CustomEvent("posterOpen", { detail: p }));
     });
 
     grid.appendChild(card);
