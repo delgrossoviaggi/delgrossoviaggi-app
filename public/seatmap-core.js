@@ -1,91 +1,129 @@
-// public/seatmap-core.js
-import { layoutGT53 } from "./seatmap-gt53.js";
-import { layoutGT63 } from "./seatmap-gt63.js";
-
 let selected = new Set();
 let occupied = new Set();
-let container = null;
+let currentBus = null;
 
-export function initSeatmap(tipoBus) {
-  container = document.getElementById("seatmap");
-  if (!container) return;
+function $(id) { return document.getElementById(id); }
 
-  container.innerHTML = "";
-  selected.clear();
-  occupied.clear();
+function renderLegend(container) {
+  const legend = document.createElement("div");
+  legend.className = "legend";
+  legend.innerHTML = `
+    <span><i class="dot"></i> libero</span>
+    <span><i class="dot sel"></i> selezionato</span>
+    <span><i class="dot occ"></i> occupato</span>
+  `;
+  container.appendChild(legend);
+}
 
-  const layout = tipoBus === "GT63" ? layoutGT63 : layoutGT53;
+function updateSelectedBox() {
+  const box = $("selectedSeats");
+  if (!box) return;
+  const arr = [...selected].sort((a,b)=>a-b);
+  box.textContent = arr.length ? arr.join(", ") : "Nessuno";
+}
 
-  layout.forEach(row => {
-    const r = document.createElement("div");
-    r.className = "seat-row";
+function makeSeatButton(n) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "seat";
+  btn.textContent = String(n);
 
-    row.forEach(cell => {
-      if (cell === "aisle") {
-        const a = document.createElement("div");
-        a.className = "aisle";
-        r.appendChild(a);
-        return;
-      }
+  const refreshClass = () => {
+    btn.classList.toggle("occupied", occupied.has(n));
+    btn.classList.toggle("selected", selected.has(n));
+    btn.disabled = occupied.has(n);
+  };
 
-      if (cell === "door") {
-        const d = document.createElement("div");
-        d.className = "door";
-        d.textContent = "🚪";
-        r.appendChild(d);
-        return;
-      }
+  btn.addEventListener("click", () => {
+    if (occupied.has(n)) return;
+    if (selected.has(n)) selected.delete(n);
+    else selected.add(n);
+    refreshClass();
+    updateSelectedBox();
+  });
 
-      const s = document.createElement("div");
-      s.className = "seat";
-      s.textContent = cell;
-      s.dataset.seat = cell;
+  refreshClass();
+  return btn;
+}
 
-      s.addEventListener("click", () => {
-        const n = Number(cell);
-        if (occupied.has(n)) return;
+function makeCell(text, cls) {
+  const d = document.createElement("div");
+  d.className = `cell ${cls || ""}`.trim();
+  d.textContent = text;
+  return d;
+}
 
-        if (selected.has(n)) {
-          selected.delete(n);
-          s.classList.remove("selected");
-        } else {
-          selected.add(n);
-          s.classList.add("selected");
-        }
+function makeBlank() {
+  const d = document.createElement("div");
+  d.className = "blank";
+  return d;
+}
 
-        window.dispatchEvent(
-          new CustomEvent("seatsChanged", {
-            detail: [...selected].sort((a, b) => a - b)
-          })
-        );
-      });
+/**
+ * Layout engine:
+ * - seatmap-gt53.js e seatmap-gt63.js esportano buildLayout()
+ * - buildLayout() ritorna un array di "righe", ogni riga è array di 6 celle:
+ *   [L1, L2, AISLE, R1, R2, SIDE]
+ *   dove ogni cella può essere:
+ *   { type:"seat", n: 12 } | { type:"door"} | {type:"blank"} | {type:"label", text:"PORTA"}
+ */
+async function buildSeatmap(busType) {
+  const seatmap = $("seatmap");
+  if (!seatmap) return;
 
-      r.appendChild(s);
+  seatmap.innerHTML = "";
+  selected = new Set();
+  updateSelectedBox();
+
+  const coach = document.createElement("div");
+  coach.className = "coach gt-2x2-door";
+
+  const head = document.createElement("div");
+  head.className = "coach-head";
+  head.innerHTML = `<span>Bus: <b>${busType}</b></span><span>Seleziona i posti</span>`;
+  coach.appendChild(head);
+
+  const grid = document.createElement("div");
+  grid.className = "grid";
+  coach.appendChild(grid);
+
+  const mod = await import(busType === "GT63" ? "./seatmap-gt63.js" : "./seatmap-gt53.js");
+  const rows = mod.buildLayout();
+
+  rows.forEach((row) => {
+    row.forEach((cell) => {
+      if (!cell || cell.type === "blank") return grid.appendChild(makeBlank());
+      if (cell.type === "aisle") return grid.appendChild(makeBlank()); // spazio corridoio
+      if (cell.type === "door") return grid.appendChild(makeCell("PORTA", "door"));
+      if (cell.type === "label") return grid.appendChild(makeCell(cell.text || "", ""));
+      if (cell.type === "seat") return grid.appendChild(makeSeatButton(Number(cell.n)));
+      return grid.appendChild(makeBlank());
     });
-
-    container.appendChild(r);
-  });
-}
-
-export function setOccupiedSeats(list) {
-  occupied = new Set(list.map(Number));
-
-  document.querySelectorAll(".seat").forEach(el => {
-    const n = Number(el.dataset.seat);
-    el.classList.remove("selected");
-    el.classList.toggle("occupied", occupied.has(n));
-    selected.delete(n);
   });
 
-  window.dispatchEvent(new CustomEvent("seatsChanged", { detail: [] }));
+  seatmap.appendChild(coach);
+  renderLegend(seatmap);
 }
 
-export function getSelectedSeats() {
-  return [...selected].sort((a, b) => a - b);
+export function initSeatmap(busType) {
+  currentBus = busType;
+  return buildSeatmap(busType);
 }
 
 export function clearSeatmap() {
-  if (container) container.innerHTML = "";
-  selected.clear();
-  occupied.clear();
+  const seatmap = $("seatmap");
+  if (seatmap) seatmap.innerHTML = "";
+  selected = new Set();
+  occupied = new Set();
+  updateSelectedBox();
+}
+
+export function getSelectedSeats() {
+  return [...selected].sort((a,b)=>a-b);
+}
+
+export function setOccupiedSeats(seats) {
+  occupied = new Set((seats || []).map(Number));
+  // ricarico layout per applicare disabled/class su bottoni
+  if (currentBus) buildSeatmap(currentBus);
 }
