@@ -1,30 +1,16 @@
-// seatmap-gt53.js
-// Layout: 6 colonne => [L1, L2, AISLE, R1, R2, SIDE]
-// Celle: null | { type:'seat', n } | { type:'door' } | { type:'driver' }
-
-export function buildGT53Layout() {
-  const rows = [];
-
-  const S = (n) => ({ type: "seat", n });
-  const DOOR = { type: "door" };
-
-  // 1..24 => 6 righe da 4 posti
-  let n = 1;
-  for (let i = 0; i < 6; i++) {
-    rows.push([S(n++), S(n++), null, S(n++), S(n++), null]);
-  }
-
-  // Riga porta: 25-26 a sinistra, 27-28 a destra, porta in SIDE
-  rows.push([S(25), S(26), null, S(27), S(28), DOOR]);
-
-  // 29..48 => 5 righe da 4 posti
-  n = 29;
-  for (let i = 0; i < 5; i++) {
-    rows.push([S(n++), S(n++), null, S(n++), S(n++), null]);
-  }
-
-  // Ultimi 5 posti allineati: 49-50 | aisle | 51-52 | 53 in SIDE
-  rows.push([S(49), S(50), null, S(51), S(52), S(53)]);
-
-  return rows;
-}
+// public/seatmap-gt53.js
+export const layoutGT53 = [
+  [1, 2, "aisle", 3, 4],
+  [5, 6, "aisle", 7, 8],
+  [9, 10, "aisle", 11, 12],
+  [13, 14, "aisle", 15, 16],
+  [17, 18, "aisle", 19, 20],
+  [21, 22, "aisle", 23, 24],
+  [25, 26, "aisle", 27, 28],
+  [29, 30, "aisle", 31, 32],
+  [33, 34, "aisle", 35, 36],
+  [37, 38, "aisle", 39, 40],
+  [41, 42, "aisle", 43, 44],
+  [45, 46, "aisle", 47, 48],
+  [49, 50, 51, 52, 53] // 👈 chiusura
+];
