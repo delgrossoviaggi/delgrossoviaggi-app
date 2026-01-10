@@ -1,23 +1,32 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
   <title>Admin – DelGrosso Viaggi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <link rel="stylesheet" href="./style.css" />
+
+  <!-- Excel export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
 
 <header class="topbar">
-  <strong>DelGrosso Admin</strong>
+  <div class="brand">
+    <strong>DelGrosso Viaggi</strong>
+    <span>Admin panel</span>
+  </div>
+  <a href="./index.html" class="icon-btn">🏠</a>
 </header>
 
 <!-- LOGIN -->
-<section id="authBox" class="card" style="max-width:400px;margin:40px auto">
+<section id="authBox" class="card auth-card">
   <h2>Accesso Admin</h2>
 
   <label>Password</label>
-  <input id="adminPass" type="password" placeholder="Inserisci password" />
+  <input id="adminPass" type="password" placeholder="Password admin" />
 
   <button id="loginBtn" class="btn">Entra</button>
   <div id="adminMsg" class="msg"></div>
@@ -25,29 +34,80 @@
 
 <!-- PANEL -->
 <main id="panel" class="container" style="display:none">
-  <h1>Admin</h1>
 
+  <h1 class="page-title">Pannello Admin</h1>
+
+  <!-- VIAGGI -->
   <section class="card">
-    <h2>Gestione Viaggi</h2>
-    <input id="tripName" placeholder="Nome viaggio" />
+    <h2 class="card-title">Viaggi</h2>
+
+    <input id="tripId" type="hidden" />
+
+    <label>Nome viaggio</label>
+    <input id="tripName" placeholder="Es. CARNEVALE DI FANO" />
+
+    <label>Data</label>
     <input id="tripDate" type="date" />
-    <input id="tripDeparture" placeholder="Partenze" />
+
+    <label>Partenze</label>
+    <input id="tripDeparture" placeholder="San Nicandro, San Severo..." />
+
+    <label>Bus</label>
     <select id="tripBus">
       <option value="GT53">GT 53</option>
       <option value="GT63">GT 63</option>
     </select>
+
+    <label>Attivo</label>
+    <select id="tripActive">
+      <option value="true">SI</option>
+      <option value="false">NO</option>
+    </select>
+
     <button id="saveTripBtn" class="btn">Salva viaggio</button>
+    <button id="resetTripBtn" class="btn ghost">Nuovo</button>
+
     <div id="tripMsg" class="msg"></div>
     <div id="tripsList"></div>
   </section>
 
+  <!-- LOCANDINE -->
   <section class="card">
-    <h2>Export Partecipanti</h2>
-    <button id="exportXlsx" class="btn">Scarica Excel</button>
-    <button id="copyPhones" class="btn ghost">Copia telefoni</button>
-    <button id="copyNames" class="btn ghost">Copia partecipanti</button>
-    <div id="exportMsg" class="msg"></div>
+    <h2 class="card-title">Locandine</h2>
+
+    <label>Viaggio</label>
+    <select id="posterTrip"></select>
+
+    <label>Titolo</label>
+    <input id="posterTitle" placeholder="Titolo locandina" />
+
+    <label>Immagine</label>
+    <input id="posterFile" type="file" accept="image/*" />
+
+    <button id="uploadPosterBtn" class="btn">Carica locandina</button>
+
+    <div id="posterMsg" class="msg"></div>
+    <div id="postersList"></div>
   </section>
+
+  <!-- PARTECIPANTI -->
+  <section class="card">
+    <h2 class="card-title">Partecipanti</h2>
+
+    <label>Viaggio</label>
+    <select id="bookingsTrip"></select>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+      <button id="exportXlsx" class="btn">Scarica Excel</button>
+      <button id="copyPhones" class="btn ghost">Copia telefoni</button>
+      <button id="copyNames" class="btn ghost">Copia partecipanti</button>
+    </div>
+
+    <div id="bookingsMsg" class="msg"></div>
+    <div id="bookingsList"></div>
+    <div id="participantsList"></div>
+  </section>
+
 </main>
 
 <script type="module" src="./admin.js"></script>
