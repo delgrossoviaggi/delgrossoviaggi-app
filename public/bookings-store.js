@@ -1,39 +1,34 @@
 import { supabase } from "./supabase.js";
 
-export async function addBooking(payload) {
+export async function loadOccupiedSeats(percorso_id) {
   const { data, error } = await supabase
-    .from("bookings")
-    .insert(payload)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
+    .from("prenotazioni")
+    .select("posti")
+    .eq("percorso_id", percorso_id)
+    .eq("stato", "confermato");
 
-export async function listBookings({ routeId } = {}) {
-  let q = supabase
-    .from("bookings")
-    .select("id,created_at,route_id,full_name,phone,seats,bus_type,routes(name)")
-    .order("created_at", { ascending: false });
+  if (error) {
+    console.error(error);
+    return [];
+  }
 
-  if (routeId) q = q.eq("route_id", routeId);
-
-  const { data, error } = await q;
-  if (error) throw error;
-  return data || [];
-}
-
-export async function getOccupiedSeats({ routeId, busType }) {
-  let q = supabase.from("bookings").select("seats");
-  if (routeId) q = q.eq("route_id", routeId);
-  if (busType) q = q.eq("bus_type", busType);
-
-  const { data, error } = await q;
-  if (error) throw error;
-
-  const occ = new Set();
-  (data || []).forEach((r) => {
-    (r.seats || []).forEach((s) => occ.add(Number(s)));
+  const set = new Set();
+  (data || []).forEach(r => {
+    (r.posti || []).forEach(s => set.add(Number(s)));
   });
-  return occ;
+
+  return [...set].sort((a,b) => a-b);
+}
+
+export async function createBooking(payload) {
+  const { error } = await supabase.from("prenotazioni").insert({
+    percorso_id: payload.percorso_id,
+    nome_cognome: payload.nome_cognome,
+    telefono: payload.telefono,
+    posti: payload.posti,
+    stato: "confermato"
+  });
+
+  if (error) return { ok:false, error: error.message };
+  return { ok:true };
 }
