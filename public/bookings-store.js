@@ -13,19 +13,16 @@ export async function loadOccupiedSeats(percorso_id) {
   }
 
   const set = new Set();
-  (data || []).forEach(r => {
-    (r.posti || []).forEach(s => set.add(Number(s)));
-  });
-
-  return [...set].sort((a,b) => a-b);
+  (data || []).forEach(r => (r.posti || []).forEach(s => set.add(Number(s))));
+  return [...set].sort((a,b)=>a-b);
 }
 
-export async function createBooking(payload) {
+export async function createBooking({ percorso_id, nome_cognome, telefono, posti }) {
   const { error } = await supabase.from("prenotazioni").insert({
-    percorso_id: payload.percorso_id,
-    nome_cognome: payload.nome_cognome,
-    telefono: payload.telefono,
-    posti: payload.posti,
+    percorso_id,
+    nome_cognome,
+    telefono,
+    posti,
     stato: "confermato"
   });
 
