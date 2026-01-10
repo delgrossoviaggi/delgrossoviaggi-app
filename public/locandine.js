@@ -1,40 +1,34 @@
 import { supabase } from "./supabase.js";
 
-// Carica locandine del viaggio selezionato
-export async function loadPostersForTrip(percorsoId) {
+// Carica locandine (manifesti) del viaggio selezionato
+export async function loadPostersForTrip(percorso_id) {
   const grid = document.getElementById("locandineGrid");
   const msg = document.getElementById("locandineMsg");
   if (!grid) return;
 
-  if (!percorsoId) {
-    grid.innerHTML = `<div class="msg">Seleziona un viaggio per vedere le locandine.</div>`;
-    if (msg) msg.textContent = "";
-    return;
-  }
+  grid.innerHTML = "";
+  if (msg) msg.textContent = "Caricamento locandine...";
 
   const { data, error } = await supabase
     .from("manifesti")
-    .select("id, creato_a, titolo, url_immagine, attivo")
-    .eq("percorso_id", percorsoId)
+    .select("id, creato_a, percorso_id, titolo, url_immagine, attivo")
     .eq("attivo", true)
+    .eq("percorso_id", percorso_id)
     .order("creato_a", { ascending: false });
 
   if (error) {
-    console.error(error);
-    grid.innerHTML = `<div class="msg">Errore caricamento locandine.</div>`;
-    if (msg) msg.textContent = "Errore locandine (console).";
-    if (msg) msg.style.color = "crimson";
+    console.error("Errore manifesti:", error);
+    if (msg) msg.textContent = "Errore caricamento locandine (vedi console).";
     return;
   }
 
   const posters = data || [];
-  grid.innerHTML = "";
-
   if (!posters.length) {
-    grid.innerHTML = `<div class="msg">Nessuna locandina per questo viaggio.</div>`;
-    if (msg) msg.textContent = "";
+    if (msg) msg.textContent = "Nessuna locandina per questo viaggio (caricala da Admin).";
     return;
   }
+
+  if (msg) msg.textContent = "";
 
   posters.forEach((p) => {
     const card = document.createElement("div");
@@ -45,6 +39,4 @@ export async function loadPostersForTrip(percorsoId) {
     `;
     grid.appendChild(card);
   });
-
-  if (msg) msg.textContent = "";
 }
