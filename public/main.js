@@ -1,12 +1,18 @@
 import { supabase } from "./supabase.js";
-import { initSeatmap, getSelectedSeats, setOccupiedSeats, clearSeatmap } from "./seatmap-core.js";
+import {
+  initSeatmap,
+  getSelectedSeats,
+  setOccupiedSeats,
+  clearSeatmap,
+} from "./seatmap-core.js";
 import { loadOccupiedSeats, createBooking } from "./bookings-store.js";
 import { loadPostersForTrip } from "./locandine.js";
 
+// DOM
 const tripSelect = document.getElementById("tripSelect");
 const dateInput = document.getElementById("tripDate");
 const depInput = document.getElementById("departure");
-const busSelect = document.getElementById("busType");
+const busInput = document.getElementById("busType");
 
 const fullNameInput = document.getElementById("fullName");
 const phoneInput = document.getElementById("phone");
@@ -16,64 +22,81 @@ const selectedBox = document.getElementById("selectedSeats");
 
 let currentTrip = null;
 
-function setMsg(text, ok = true) {
+// Utils
+function setMsg(text = "", ok = true) {
   if (!msgBox) return;
-  msgBox.textContent = text || "";
+  msgBox.textContent = text;
   msgBox.style.color = ok ? "green" : "crimson";
 }
 
 function normalizeBus(v) {
-  const s = (v || "").toString().toUpperCase().replace(/\s+/g, "");
-  if (s === "GT53") return "GT53";
-  if (s === "GT63") return "GT63";
-  // fallback
+  const s = (v || "")
+    .toString()
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .replace(/-/g, "");
   if (s.includes("53")) return "GT53";
   if (s.includes("63")) return "GT63";
-  return "GT53";
+  return "";
 }
 
-async function loadTrips() {
+function setReadOnlyFields({ data = "", partenza = "", tipo_bus = "" } = {}) {
+  if (dateInput) dateInput.value = data || "";
+  if (depInput) depInput.value = partenza || "";
+  if (busInput) busInput.value = tipo_bus || "";
+}
+
+function clearUI() {
+  currentTrip = null;
+  setReadOnlyFields({ data: "", partenza: "", tipo_bus: "" });
+  if (selectedBox) selectedBox.textContent = "Nessuno";
+  clearSeatmap();
   setMsg("");
+}
 
-  const { data, error } = await supabase
-    .from("percorsi")
-    .select("id, viaggio, data, partenza, tipo_bus, attivo")
-    .eq("attivo", true)
-    .order("data", { ascending: true });
+// 1) Load Trips
+async function loadTrips() {
+  try {
+    setMsg("Caricamento viaggi...");
+    if (tripSelect) tripSelect.innerHTML = `<option value="">Seleziona...</option>`;
 
-  if (error) {
-    console.error(error);
-    setMsg("Errore caricamento viaggi (console).", false);
-    return;
-  }
+    const { data, error } = await supabase
+      .from("percorsi")
+      .select("id, viaggio, data, partenza, tipo_bus, attivo")
+      .eq("attivo", true)
+      .order("data", { ascending: true });
 
-  tripSelect.innerHTML = `<option value="">Seleziona...</option>`;
-  (data || []).forEach(t => {
-    const opt = document.createElement("option");
-    opt.value = t.id;
-    opt.textContent = `${t.viaggio} — ${t.data} — ${t.partenza}`;
-    opt.dataset.bus = t.tipo_bus;
-    opt.dataset.date = t.data;
-    opt.dataset.dep = t.partenza;
-    tripSelect.appendChild(opt);
-  });
+    if (error) throw error;
 
-  // opzionale: se c'è almeno un viaggio, lo seleziono automaticamente
-  if ((data || []).length === 1) {
-    tripSelect.value = data[0].id;
-    await onTripChange();
+    const trips = data || [];
+    if (!trips.length) {
+      setMsg("Nessun viaggio attivo trovato. Verifica tabella 'percorsi'.", false);
+      return;
+    }
+
+    trips.forEach((t) => {
+      const opt = document.createElement("option");
+      opt.value = t.id;
+      opt.textContent = `${t.viaggio} — ${t.data} — ${t.partenza}`;
+      opt.dataset.bus = t.tipo_bus || "";
+      opt.dataset.date = t.data || "";
+      opt.dataset.dep = t.partenza || "";
+      tripSelect.appendChild(opt);
+    });
+
+    setMsg(""); // ok
+  } catch (e) {
+    console.error("Errore loadTrips:", e);
+    setMsg("Errore caricamento viaggi (vedi console).", false);
   }
 }
 
+// 2) On Trip Change
 async function onTripChange() {
-  const id = tripSelect.value;
+  const id = tripSelect?.value;
 
   if (!id) {
-    currentTrip = null;
-    clearSeatmap();
-    if (selectedBox) selectedBox.textContent = "Nessuno";
-    await loadPostersForTrip(null);
-    setMsg("");
+    clearUI();
     return;
   }
 
@@ -84,60 +107,83 @@ async function onTripChange() {
 
   currentTrip = { id, tipo_bus, data, partenza };
 
-  if (dateInput) dateInput.value = data;
-  if (depInput) depInput.value = partenza;
-  if (busSelect) busSelect.value = tipo_bus;
+  setReadOnlyFields({ data, partenza, tipo_bus });
 
-  // 1) seatmap
-  initSeatmap(tipo_bus);
+  try {
+    setMsg("Caricamento viaggio...");
 
-  // 2) posti occupati
-  const occ = await loadOccupiedSeats(id);
-  setOccupiedSeats(occ);
+    // A) Seatmap
+    initSeatmap(tipo_bus);
 
-  // 3) locandine (solo del viaggio selezionato)
-  await loadPostersForTrip(id);
+    // B) Occupati
+    const occ = await loadOccupiedSeats(id);
+    setOccupiedSeats(occ);
 
-  setMsg("Viaggio caricato ✅");
+    // C) Locandine collegate al percorso
+    await loadPostersForTrip(id);
+
+    setMsg("Viaggio caricato ✅");
+  } catch (e) {
+    console.error("Errore onTripChange:", e);
+    setMsg("Errore caricamento viaggio (vedi console).", false);
+  }
 }
 
-tripSelect.addEventListener("change", onTripChange);
+// 3) Booking
+async function onBook() {
+  try {
+    setMsg("");
 
-bookBtn.addEventListener("click", async () => {
-  setMsg("");
+    if (!currentTrip?.id) return setMsg("Seleziona prima un viaggio.", false);
 
-  if (!currentTrip?.id) return setMsg("Seleziona prima un viaggio.", false);
+    const full_name = (fullNameInput?.value || "").trim();
+    const phone = (phoneInput?.value || "").trim();
+    const seats = getSelectedSeats();
 
-  const full_name = (fullNameInput?.value || "").trim();
-  const phone = (phoneInput?.value || "").trim();
-  const seats = getSelectedSeats();
+    if (!full_name) return setMsg("Inserisci Nome e Cognome.", false);
+    if (!phone) return setMsg("Inserisci il Telefono.", false);
+    if (!seats.length) return setMsg("Seleziona almeno 1 posto.", false);
 
-  if (!full_name || !phone) return setMsg("Inserisci Nome e Telefono.", false);
-  if (!seats.length) return setMsg("Seleziona almeno 1 posto.", false);
+    setMsg("Verifica posti...");
 
-  // blocco doppia prenotazione
-  const occ = await loadOccupiedSeats(currentTrip.id);
-  const conflict = seats.find(s => occ.includes(s));
-  if (conflict) {
-    setOccupiedSeats(occ);
-    return setMsg(`Il posto ${conflict} è già occupato. Seleziona altri posti.`, false);
+    // blocco doppia prenotazione
+    const occ = await loadOccupiedSeats(currentTrip.id);
+    const conflict = seats.find((s) => occ.includes(s));
+    if (conflict) {
+      setOccupiedSeats(occ);
+      return setMsg(`Il posto ${conflict} è già occupato.`, false);
+    }
+
+    setMsg("Salvataggio prenotazione...");
+
+    const res = await createBooking({
+      percorso_id: currentTrip.id,
+      nome_cognome: full_name,
+      telefono: phone,
+      posti: seats,
+    });
+
+    if (!res?.ok) return setMsg(res?.error || "Errore prenotazione.", false);
+
+    // refresh posti occupati
+    const occ2 = await loadOccupiedSeats(currentTrip.id);
+    setOccupiedSeats(occ2);
+
+    if (selectedBox) selectedBox.textContent = "Nessuno";
+    if (fullNameInput) fullNameInput.value = "";
+    if (phoneInput) phoneInput.value = "";
+
+    setMsg("Prenotazione confermata ✅");
+  } catch (e) {
+    console.error("Errore prenotazione:", e);
+    setMsg("Errore prenotazione (vedi console).", false);
   }
+}
 
-  const res = await createBooking({
-    percorso_id: currentTrip.id,
-    nome_cognome: full_name,
-    telefono: phone,
-    posti: seats
-  });
+// Wiring
+tripSelect?.addEventListener("change", onTripChange);
+bookBtn?.addEventListener("click", onBook);
 
-  if (!res.ok) return setMsg(res.error || "Errore prenotazione.", false);
-
-  // refresh posti occupati
-  const occ2 = await loadOccupiedSeats(currentTrip.id);
-  setOccupiedSeats(occ2);
-
-  if (selectedBox) selectedBox.textContent = "Nessuno";
-  setMsg("Prenotazione confermata ✅");
-});
-
+// Init
+clearUI();
 loadTrips();
