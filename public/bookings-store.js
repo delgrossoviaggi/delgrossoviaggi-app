@@ -4,16 +4,17 @@ export async function loadOccupiedSeats(percorso_id) {
   const { data, error } = await supabase
     .from("prenotazioni")
     .select("posti")
-    .eq("percorso_id", percorso_id);
+    .eq("percorso_id", percorso_id)
+    .eq("stato", "confermato");
 
   if (error) {
-    console.error(error);
+    console.error("loadOccupiedSeats:", error);
     return [];
   }
 
   const set = new Set();
-  (data || []).forEach(r => (r.posti || []).forEach(p => set.add(Number(p))));
-  return [...set];
+  (data || []).forEach((r) => (r.posti || []).forEach((s) => set.add(Number(s))));
+  return [...set].sort((a, b) => a - b);
 }
 
 export async function createBooking({ percorso_id, nome_cognome, telefono, posti }) {
@@ -21,7 +22,8 @@ export async function createBooking({ percorso_id, nome_cognome, telefono, posti
     percorso_id,
     nome_cognome,
     telefono,
-    posti
+    posti,              // ✅ colonna corretta
+    stato: "confermato"
   });
 
   if (error) return { ok: false, error: error.message };
