@@ -1,63 +1,55 @@
-/// 🔒 AUTH (admin chiuso fino a password)
-const ADMIN_PASSWORD = "del2025bus";
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin – DelGrosso Viaggi</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
 
-const authBox = document.getElementById("authBox");
-const panel = document.getElementById("panel");
-const adminPass = document.getElementById("adminPass");
-const loginBtn = document.getElementById("loginBtn");
-const adminMsg = document.getElementById("adminMsg");
-const logoutBtn = document.getElementById("logoutBtn");
+<body>
 
-function setMsg(el, text, ok = true) {
-  if (!el) return;
-  el.textContent = text || "";
-  el.style.color = ok ? "green" : "crimson";
-}
+<header class="topbar">
+  <strong>DelGrosso Admin</strong>
+</header>
 
-function isLogged() {
-  return sessionStorage.getItem("dg_admin_ok") === "1";
-}
-function setLogged(v) {
-  sessionStorage.setItem("dg_admin_ok", v ? "1" : "0");
-}
-function showPanel() {
-  if (authBox) authBox.style.display = "none";
-  if (panel) panel.style.display = "grid";
-}
-function showLogin() {
-  if (authBox) authBox.style.display = "block";
-  if (panel) panel.style.display = "none";
-}
+<!-- LOGIN -->
+<section id="authBox" class="card" style="max-width:400px;margin:40px auto">
+  <h2>Accesso Admin</h2>
 
-async function initAuth(bootAdminFn) {
-  if (!authBox || !panel) return;
+  <label>Password</label>
+  <input id="adminPass" type="password" placeholder="Inserisci password" />
 
-  // default: sempre login
-  showLogin();
+  <button id="loginBtn" class="btn">Entra</button>
+  <div id="adminMsg" class="msg"></div>
+</section>
 
-  if (isLogged()) {
-    showPanel();
-    setMsg(adminMsg, "Accesso OK ✅", true);
-    await bootAdminFn();
-    return;
-  }
+<!-- PANEL -->
+<main id="panel" class="container" style="display:none">
+  <h1>Admin</h1>
 
-  loginBtn?.addEventListener("click", async () => {
-    const p = (adminPass?.value || "").trim();
-    if (!p) return setMsg(adminMsg, "Inserisci la password.", false);
-    if (p !== ADMIN_PASSWORD) return setMsg(adminMsg, "Password errata.", false);
+  <section class="card">
+    <h2>Gestione Viaggi</h2>
+    <input id="tripName" placeholder="Nome viaggio" />
+    <input id="tripDate" type="date" />
+    <input id="tripDeparture" placeholder="Partenze" />
+    <select id="tripBus">
+      <option value="GT53">GT 53</option>
+      <option value="GT63">GT 63</option>
+    </select>
+    <button id="saveTripBtn" class="btn">Salva viaggio</button>
+    <div id="tripMsg" class="msg"></div>
+    <div id="tripsList"></div>
+  </section>
 
-    setLogged(true);
-    showPanel();
-    setMsg(adminMsg, "Accesso OK ✅", true);
-    await bootAdminFn();
-  });
+  <section class="card">
+    <h2>Export Partecipanti</h2>
+    <button id="exportXlsx" class="btn">Scarica Excel</button>
+    <button id="copyPhones" class="btn ghost">Copia telefoni</button>
+    <button id="copyNames" class="btn ghost">Copia partecipanti</button>
+    <div id="exportMsg" class="msg"></div>
+  </section>
+</main>
 
-  logoutBtn?.addEventListener("click", () => {
-    sessionStorage.removeItem("dg_admin_ok");
-    location.reload();
-  });
-}
-
-// ✅ poi in fondo al file:
-// initAuth(() => bootAdmin().catch(console.error));
+<script type="module" src="./admin.js"></script>
+</body>
+</html>
