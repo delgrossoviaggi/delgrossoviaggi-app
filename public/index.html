@@ -1,16 +1,14 @@
-<!DOCTYPE html>
+<<!doctype html>
 <html lang="it">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>DelGrosso Viaggi – Prenotazioni</title>
-
-  <!-- CSS -->
-  <link rel="stylesheet" href="./style.css" />
+  <meta name="description" content="Prenotazioni Pullman DelGrosso Viaggi & Limousine Bus" />
+  <link rel="stylesheet" href="./style.css?v=1" />
 </head>
 
 <body>
-  <!-- HEADER -->
   <header class="topbar">
     <div class="brand">
       <div class="brand-text">
@@ -21,15 +19,13 @@
     </div>
 
     <!-- link admin -->
-    <a class="icon-btn" href="./admin.html" title="Admin">⚙️</a>
+    <a class="icon-btn" href="./admin.html" title="Admin" aria-label="Admin">⚙️</a>
   </header>
 
-  <!-- MAIN -->
   <main class="container">
     <h1 class="page-title">Prenotazioni</h1>
 
     <div class="layout-3">
-
       <!-- LOCANDINE -->
       <section class="card">
         <h2 class="card-title">Locandine</h2>
@@ -46,23 +42,23 @@
           <option value="">Seleziona...</option>
         </select>
 
-        <label class="lbl">Data viaggio</label>
-        <input id="tripDate" class="in" type="text" readonly />
+        <label class="lbl" for="tripDate">Data viaggio</label>
+        <input id="tripDate" class="in" type="text" readonly placeholder="—" />
 
-        <label class="lbl">Partenza</label>
-        <input id="departure" class="in" type="text" readonly />
+        <label class="lbl" for="departure">Partenza</label>
+        <input id="departure" class="in" type="text" readonly placeholder="—" />
 
-        <label class="lbl">Bus</label>
-        <input id="busType" class="in" type="text" readonly />
+        <label class="lbl" for="busType">Bus</label>
+        <input id="busType" class="in" type="text" readonly placeholder="—" />
 
         <hr class="sep" />
 
         <h2 class="card-title">Prenotazione</h2>
 
-        <label class="lbl">Nome e Cognome</label>
+        <label class="lbl" for="fullName">Nome e Cognome</label>
         <input id="fullName" class="in" type="text" placeholder="Es. Mario Rossi" />
 
-        <label class="lbl">Telefono</label>
+        <label class="lbl" for="phone">Telefono</label>
         <input id="phone" class="in" type="tel" placeholder="+39..." />
 
         <div class="selected-box">
@@ -70,7 +66,7 @@
           <div id="selectedSeats">Nessuno</div>
         </div>
 
-        <button id="bookBtn" class="btn">Prenota</button>
+        <button id="bookBtn" class="btn" type="button">Prenota</button>
         <div id="msgBox" class="msg"></div>
       </section>
 
@@ -79,11 +75,9 @@
         <h2 class="card-title">Piantina posti</h2>
         <div id="seatmap" class="seatmap"></div>
       </section>
-
     </div>
   </main>
 
-  <!-- JS -->
-  <script type="module" src="./main.js"></script>
+  <script type="module" src="./main.js?v=1"></script>
 </body>
 </html>
