@@ -1,138 +1,132 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="it">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>DelGrosso — Admin</title>
-  <link rel="stylesheet" href="./style.css?v=1" />
-</head>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>DelGrosso — Admin</title>
+    <link rel="stylesheet" href="./style.css?v=1" />
+  </head>
 
-<body>
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-text">
-        <div class="brand-title">DelGrosso Viaggi</div>
-        <div class="brand-sub">&amp; Limousine Bus</div>
-        <div class="brand-mini">Pannello Admin</div>
-      </div>
-    </div>
-
-    <a class="icon-btn" href="./index.html" title="Torna alla Home">🏠</a>
-  </header>
-
-  <main class="container">
-    <h1 class="page-title">Admin</h1>
-
-    <!-- LOGIN -->
-    <section class="card" id="authBox" style="display:none">
-      <h2 class="card-title">Accesso</h2>
-
-      <label class="lbl" for="adminPass">Password</label>
-      <input id="adminPass" class="in" type="password" placeholder="Password admin" />
-
-      <button id="loginBtn" class="btn" type="button">Entra</button>
-
-      <div id="adminMsg" class="msg" style="margin-top:10px"></div>
-
-      <div class="msg" style="margin-top:8px;color:#6b7280">
-        Nota: login “semplice” via browser (localStorage). Se vuoi lo rendiamo più sicuro dopo.
-      </div>
-    </section>
-
-    <!-- PANEL -->
-    <div id="panel" class="layout-3" style="display:none">
-
-      <!-- COL 1: VIAGGI -->
-      <section class="card">
-        <h2 class="card-title">Viaggi</h2>
-
-        <!-- hidden id per modifica -->
-        <input id="tripId" type="hidden" />
-
-        <label class="lbl" for="tripName">Nome viaggio</label>
-        <input id="tripName" class="in" type="text" placeholder="Es. CARNEVALE DI FANO" />
-
-        <label class="lbl" for="tripDate">Data (YYYY-MM-DD)</label>
-        <input id="tripDate" class="in" type="date" />
-
-        <label class="lbl" for="tripDeparture">Partenze</label>
-        <textarea id="tripDeparture" class="ta" rows="3" placeholder="Es. SAN NICANDRO, SAN SEVERO, APRICENA..."></textarea>
-
-        <label class="lbl" for="tripBus">Bus</label>
-        <select id="tripBus" class="in">
-          <option value="GT53">GT53</option>
-          <option value="GT63">GT63</option>
-        </select>
-
-        <label class="lbl" for="tripActive">Attivo</label>
-        <select id="tripActive" class="in">
-          <option value="true">TRUE</option>
-          <option value="false">FALSE</option>
-        </select>
-
-        <div style="display:flex;gap:10px;margin-top:12px">
-          <button id="saveTripBtn" class="btn" type="button">Salva viaggio</button>
-          <button id="resetTripBtn" class="btn ghost" type="button">Reset</button>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-text">
+          <div class="brand-title">DelGrosso Viaggi</div>
+          <div class="brand-sub">&amp; Limousine Bus</div>
+          <div class="brand-mini">Admin</div>
         </div>
+      </div>
 
-        <div id="tripMsg" class="msg"></div>
+      <a class="icon-btn" href="./index.html" title="Torna alla Home">🏠</a>
+    </header>
 
+    <main class="container">
+      <h1 class="page-title">Admin</h1>
+
+      <!-- LOGIN (semplice) -->
+      <section class="card" id="authBox">
+        <h2 class="card-title">Accesso</h2>
+        <label class="lbl" for="adminPass">Password</label>
+        <input id="adminPass" class="in" type="password" placeholder="Inserisci password..." />
+        <button id="loginBtn" class="btn" type="button">Entra</button>
+        <div id="adminMsg" class="msg"></div>
         <hr class="sep" />
-
-        <div class="card-title" style="font-size:16px;margin:0 0 8px">Elenco viaggi</div>
-        <div id="tripsList"></div>
+        <div class="msg" style="color:#6b7280">
+          Nota: login semplice lato browser (non Supabase Auth). Se vuoi renderlo “blindato” lo facciamo dopo ✅
+        </div>
       </section>
 
-      <!-- COL 2: LOCANDINE -->
-      <section class="card">
-        <h2 class="card-title">Upload locandina</h2>
+      <!-- PANNELLO -->
+      <div id="panel" class="layout-3" style="display:none">
+        <!-- VIAGGI -->
+        <section class="card">
+          <h2 class="card-title">Viaggi</h2>
 
-        <label class="lbl" for="posterTrip">Viaggio</label>
-        <select id="posterTrip" class="in">
-          <option value="">Seleziona viaggio...</option>
-        </select>
+          <input id="tripId" type="hidden" />
 
-        <label class="lbl" for="posterTitle">Titolo</label>
-        <input id="posterTitle" class="in" type="text" placeholder="Titolo locandina (opzionale)" />
+          <label class="lbl" for="tripName">Nome viaggio</label>
+          <input id="tripName" class="in" type="text" placeholder="Es. CARNEVALE DI FANO" />
 
-        <label class="lbl" for="posterFile">Immagine</label>
-        <input id="posterFile" class="in" type="file" accept="image/*" />
+          <label class="lbl" for="tripDate">Data (YYYY-MM-DD)</label>
+          <input id="tripDate" class="in" type="date" />
 
-        <button id="uploadPosterBtn" class="btn" type="button">Carica</button>
+          <label class="lbl" for="tripDeparture">Partenze</label>
+          <input
+            id="tripDeparture"
+            class="in"
+            type="text"
+            placeholder="Es. SAN NICANDRO, SAN SEVERO, APRICENA..."
+          />
 
-        <div id="posterMsg" class="msg"></div>
+          <label class="lbl" for="tripBus">Bus</label>
+          <select id="tripBus" class="in">
+            <option value="GT53">GT 53</option>
+            <option value="GT63">GT 63</option>
+          </select>
 
-        <hr class="sep" />
+          <label class="lbl" for="tripActive">Attivo</label>
+          <select id="tripActive" class="in">
+            <option value="true">TRUE</option>
+            <option value="false">FALSE</option>
+          </select>
 
-        <div class="card-title" style="font-size:16px;margin:0 0 8px">Locandine caricate</div>
-        <div id="postersList"></div>
-      </section>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+            <button id="saveTripBtn" class="btn" type="button" style="flex:1;min-width:180px">
+              Salva viaggio
+            </button>
+            <button id="resetTripBtn" class="btn ghost" type="button" style="flex:1;min-width:180px">
+              Nuovo / Reset
+            </button>
+          </div>
 
-      <!-- COL 3: PRENOTAZIONI + PARTECIPANTI -->
-      <section class="card">
-        <h2 class="card-title">Prenotazioni</h2>
+          <div id="tripMsg" class="msg"></div>
+          <hr class="sep" />
 
-        <label class="lbl" for="bookingsTrip">Viaggio</label>
-        <select id="bookingsTrip" class="in">
-          <option value="">Seleziona viaggio...</option>
-        </select>
+          <h3 class="subttl">Elenco viaggi</h3>
+          <div id="tripsList"></div>
+        </section>
 
-        <div id="bookingsMsg" class="msg"></div>
+        <!-- LOCANDINE -->
+        <section class="card">
+          <h2 class="card-title">Upload locandina</h2>
 
-        <hr class="sep" />
+          <label class="lbl" for="posterTrip">Viaggio</label>
+          <select id="posterTrip" class="in"></select>
 
-        <div class="card-title" style="font-size:16px;margin:0 0 8px">Elenco prenotazioni</div>
-        <div id="bookingsList"></div>
+          <label class="lbl" for="posterTitle">Titolo</label>
+          <input id="posterTitle" class="in" type="text" placeholder="Es. CARNEVALE FANO 2026" />
 
-        <hr class="sep" />
+          <label class="lbl" for="posterFile">Immagine</label>
+          <input id="posterFile" class="in" type="file" accept="image/*" />
 
-        <div class="card-title" style="font-size:16px;margin:0 0 8px">Lista partecipanti</div>
-        <div id="participantsList"></div>
-      </section>
+          <button id="uploadPosterBtn" class="btn" type="button">Carica</button>
+          <div id="posterMsg" class="msg"></div>
 
-    </div>
-  </main>
+          <hr class="sep" />
+          <h3 class="subttl">Locandine caricate</h3>
+          <div id="postersList"></div>
+        </section>
 
-  <script type="module" src="./admin.js?v=1"></script>
-</body>
+        <!-- PRENOTAZIONI -->
+        <section class="card">
+          <h2 class="card-title">Prenotazioni &amp; Partecipanti</h2>
+
+          <label class="lbl" for="bookingsTrip">Viaggio</label>
+          <select id="bookingsTrip" class="in"></select>
+
+          <div id="bookingsMsg" class="msg"></div>
+
+          <hr class="sep" />
+          <h3 class="subttl">Prenotazioni</h3>
+          <div id="bookingsList"></div>
+
+          <hr class="sep" />
+          <h3 class="subttl">Lista partecipanti</h3>
+          <div id="participantsList"></div>
+        </section>
+      </div>
+    </main>
+
+    <script type="module" src="./admin.js?v=1"></script>
+  </body>
 </html>
