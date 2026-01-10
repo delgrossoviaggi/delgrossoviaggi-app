@@ -1,7 +1,19 @@
-// 🔒 Password (cambiala!)
+/// 🔒 AUTH (admin chiuso fino a password)
 const ADMIN_PASSWORD = "del2025bus";
 
-// auth helpers
+const authBox = document.getElementById("authBox");
+const panel = document.getElementById("panel");
+const adminPass = document.getElementById("adminPass");
+const loginBtn = document.getElementById("loginBtn");
+const adminMsg = document.getElementById("adminMsg");
+const logoutBtn = document.getElementById("logoutBtn");
+
+function setMsg(el, text, ok = true) {
+  if (!el) return;
+  el.textContent = text || "";
+  el.style.color = ok ? "green" : "crimson";
+}
+
 function isLogged() {
   return sessionStorage.getItem("dg_admin_ok") === "1";
 }
@@ -17,17 +29,16 @@ function showLogin() {
   if (panel) panel.style.display = "none";
 }
 
-function initAuth() {
+async function initAuth(bootAdminFn) {
   if (!authBox || !panel) return;
 
-  // 🔥 SEMPRE: di default mostra login
+  // default: sempre login
   showLogin();
 
-  // se già loggato nella sessione corrente
   if (isLogged()) {
     showPanel();
     setMsg(adminMsg, "Accesso OK ✅", true);
-    bootAdmin().catch(console.error);
+    await bootAdminFn();
     return;
   }
 
@@ -39,9 +50,14 @@ function initAuth() {
     setLogged(true);
     showPanel();
     setMsg(adminMsg, "Accesso OK ✅", true);
-    await bootAdmin();
+    await bootAdminFn();
+  });
+
+  logoutBtn?.addEventListener("click", () => {
+    sessionStorage.removeItem("dg_admin_ok");
+    location.reload();
   });
 }
 
-// ✅ INIT: non avviare bootAdmin se non loggato
-initAuth();
+// ✅ poi in fondo al file:
+// initAuth(() => bootAdmin().catch(console.error));
