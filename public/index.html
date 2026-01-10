@@ -5,77 +5,85 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>DelGrosso Viaggi – Prenotazioni</title>
 
-  <link rel="stylesheet" href="./style.css?v=1" />
+  <!-- CSS -->
+  <link rel="stylesheet" href="./style.css" />
 </head>
+
 <body>
-
-<header class="topbar">
-  <div class="brand">
-    <div class="brand-text">
-      <div class="brand-title">DelGrosso Viaggi</div>
-      <div class="brand-sub">& Limousine Bus</div>
-      <div class="brand-mini">Prenotazioni Pullman</div>
-    </div>
-  </div>
-  <a class="icon-btn" href="./admin.html">⚙️</a>
-</header>
-
-<main class="container">
-  <h1 class="page-title">Prenotazioni</h1>
-
-  <div class="layout-3">
-
-    <!-- LOCANDINE -->
-    <section class="card">
-      <h2 class="card-title">Locandine</h2>
-      <div id="locandineGrid" class="locandine-grid"></div>
-      <div id="locandineMsg" class="msg"></div>
-    </section>
-
-    <!-- VIAGGIO + PRENOTAZIONE -->
-    <section class="card">
-      <h2 class="card-title">Viaggio</h2>
-
-      <label class="lbl">Seleziona viaggio</label>
-      <select id="tripSelect" class="in"></select>
-
-      <label class="lbl">Data viaggio</label>
-      <input id="tripDate" class="in" type="text" readonly />
-
-      <label class="lbl">Partenza</label>
-      <input id="departure" class="in" type="text" readonly />
-
-      <label class="lbl">Bus</label>
-      <input id="busType" class="in" type="text" readonly />
-
-      <hr class="sep" />
-
-      <h2 class="card-title">Prenotazione</h2>
-
-      <label class="lbl">Nome e Cognome</label>
-      <input id="fullName" class="in" type="text" placeholder="Es. Mario Rossi" />
-
-      <label class="lbl">Telefono</label>
-      <input id="phone" class="in" type="tel" placeholder="+39..." />
-
-      <div class="selected-box">
-        <div class="selected-title">Posti selezionati</div>
-        <div id="selectedSeats">Nessuno</div>
+  <!-- HEADER -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-text">
+        <div class="brand-title">DelGrosso Viaggi</div>
+        <div class="brand-sub">&amp; Limousine Bus</div>
+        <div class="brand-mini">Prenotazioni Pullman</div>
       </div>
+    </div>
 
-      <button id="bookBtn" class="btn">Prenota</button>
-      <div id="msgBox" class="msg"></div>
-    </section>
+    <!-- link admin -->
+    <a class="icon-btn" href="./admin.html" title="Admin">⚙️</a>
+  </header>
 
-    <!-- PIANTINA -->
-   <section class="card">
-    <h2 class="card-title">Piantina posti</h2>
-    <div id="seatmap" class="seatmap"></div>
-   </section>
+  <!-- MAIN -->
+  <main class="container">
+    <h1 class="page-title">Prenotazioni</h1>
 
-  </div>
-</main>
+    <div class="layout-3">
 
-<script type="module" src="./main.js?v=3"></script>
+      <!-- LOCANDINE -->
+      <section class="card">
+        <h2 class="card-title">Locandine</h2>
+        <div id="locandineGrid" class="locandine-grid"></div>
+        <div id="locandineMsg" class="msg"></div>
+      </section>
+
+      <!-- VIAGGIO + PRENOTAZIONE -->
+      <section class="card">
+        <h2 class="card-title">Viaggio</h2>
+
+        <label class="lbl" for="tripSelect">Seleziona viaggio</label>
+        <select id="tripSelect" class="in">
+          <option value="">Seleziona...</option>
+        </select>
+
+        <label class="lbl">Data viaggio</label>
+        <input id="tripDate" class="in" type="text" readonly />
+
+        <label class="lbl">Partenza</label>
+        <input id="departure" class="in" type="text" readonly />
+
+        <label class="lbl">Bus</label>
+        <input id="busType" class="in" type="text" readonly />
+
+        <hr class="sep" />
+
+        <h2 class="card-title">Prenotazione</h2>
+
+        <label class="lbl">Nome e Cognome</label>
+        <input id="fullName" class="in" type="text" placeholder="Es. Mario Rossi" />
+
+        <label class="lbl">Telefono</label>
+        <input id="phone" class="in" type="tel" placeholder="+39..." />
+
+        <div class="selected-box">
+          <div class="selected-title">Posti selezionati</div>
+          <div id="selectedSeats">Nessuno</div>
+        </div>
+
+        <button id="bookBtn" class="btn">Prenota</button>
+        <div id="msgBox" class="msg"></div>
+      </section>
+
+      <!-- PIANTINA -->
+      <section class="card">
+        <h2 class="card-title">Piantina posti</h2>
+        <div id="seatmap" class="seatmap"></div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- JS -->
+  <script type="module" src="./main.js"></script>
 </body>
 </html>
