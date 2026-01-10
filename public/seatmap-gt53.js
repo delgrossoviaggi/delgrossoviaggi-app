@@ -1,19 +1,28 @@
-// public/seatmap-gt53.js
-e// public/seatmap-gt53.js
-export const layoutGT53 = [
-  [1, 2, "aisle", 3, 4],
-  [5, 6, "aisle", 7, 8],
-  [9, 10, "aisle", 11, 12],
-  [13, 14, "aisle", 15, 16],
-  [17, 18, "aisle", 19, 20],
-  [21, 22, "aisle", 23, 24],
-  [25, 26, "aisle", 27, 28],
-  [29, 30, "aisle", 31, 32],
-  [33, 34, "aisle", 35, 36],
-  [37, 38, "aisle", 39, 40],
-  [41, 42, "aisle", 43, 44],
-  [45, 46, "aisle", 47, 48],
+export function buildLayout() {
+  // Helper per creare riga standard (2+aisle+2+side)
+  const S = (n) => ({ type: "seat", n });
+  const B = () => ({ type: "blank" });
+  const A = () => ({ type: "aisle" });
+  const D = () => ({ type: "door" });
 
-  // 🔒 ULTIMA FILA – CHIUSURA BUS
-  [49, 50, 51, 52, 53]
-];
+  const rows = [];
+
+  // Righe 1..12 (48 posti) in schema 2+2
+  // Ogni riga contiene 4 posti: L1,L2 | R1,R2
+  // 12 righe * 4 = 48
+  let n = 1;
+  for (let i = 0; i < 12; i++) {
+    rows.push([S(n++), S(n++), A(), S(n++), S(n++), B()]);
+  }
+
+  // Porta vicino a 25-26 (se vuoi visualizzarla più “realistica”, la mettiamo a metà)
+  // Qui la rappresentiamo in una riga “di servizio” senza posti:
+  rows.splice(6, 0, [B(), B(), A(), B(), B(), D()]); // dopo 6 righe
+
+  // Ultimi 5 posti (49-53) ALLINEATI in unica riga
+  // Richiesta: 49-50-51-52-53 allineati
+  // Li metto: 49-50 a sinistra, 51 al corridoio “simulato” (centro), 52-53 a destra
+  rows.push([S(49), S(50), S(51), S(52), S(53), B()]);
+
+  return rows;
+}
