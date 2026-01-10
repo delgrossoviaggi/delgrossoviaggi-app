@@ -1,15 +1,27 @@
 import { supabase } from "./supabase.js";
 
-/**
- * Prenotazioni
- * Tabella: prenotazioni
- * Colonne: percorso_id, nome_cognome, telefono, posti_a_sedere (jsonb array), creato_a
- */
+// ✅ prova a leggere sia "posti_a_sedere" che "posti" (per evitare mismatch)
+const COL_SEATS_A = "posti_a_sedere";
+const COL_SEATS_B = "posti";
+
+function toArray(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v;
+  if (typeof v === "string") {
+    try {
+      const x = JSON.parse(v);
+      return Array.isArray(x) ? x : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
 
 export async function loadOccupiedSeats(percorso_id) {
   const { data, error } = await supabase
     .from("prenotazioni")
-    .select("posti_a_sedere")
+    .select(`${COL_SEATS_A},${COL_SEATS_B}`)
     .eq("percorso_id", percorso_id);
 
   if (error) {
@@ -17,27 +29,15 @@ export async function loadOccupiedSeats(percorso_id) {
     return [];
   }
 
+  // ✅ DEBUG utile: vedi cosa torna davvero
+  console.log("prenotazioni raw:", data);
+
   const set = new Set();
-
   (data || []).forEach((r) => {
-    const seats = r?.posti_a_sedere;
-
-    // jsonb array atteso
-    if (Array.isArray(seats)) {
-      seats.forEach((s) => set.add(String(s)));
-      return;
-    }
-
-    // fallback: se per qualche motivo arrivasse stringa JSON
-    if (typeof seats === "string") {
-      try {
-        const arr = JSON.parse(seats);
-        if (Array.isArray(arr)) arr.forEach((s) => set.add(String(s)));
-      } catch {}
-    }
+    const seats = toArray(r[COL_SEATS_A]).length ? r[COL_SEATS_A] : r[COL_SEATS_B];
+    toArray(seats).forEach((s) => set.add(String(s)));
   });
 
-  // ordina numericamente se possibile
   return [...set].sort((a, b) => Number(a) - Number(b));
 }
 
@@ -46,7 +46,7 @@ export async function createBooking({ percorso_id, nome_cognome, telefono, posti
     percorso_id,
     nome_cognome,
     telefono,
-    posti_a_sedere, // array -> jsonb
+    posti_a_sedere: (posti_a_sedere || []).map(String), // ✅ salva sempre stringhe
   };
 
   const { error } = await supabase.from("prenotazioni").insert(payload);
@@ -55,6 +55,5 @@ export async function createBooking({ percorso_id, nome_cognome, telefono, posti
     console.error("createBooking error:", error);
     return { ok: false, error: error.message };
   }
-
   return { ok: true };
 }
