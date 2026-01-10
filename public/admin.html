@@ -1,68 +1,37 @@
-<!doctype html>
-<html lang="it">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>DelGrosso – Admin</title>
-  <link rel="stylesheet" href="./style.css?v=1">
-</head>
-<body>
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-text">
-        <div class="brand-title">DelGrosso Admin</div>
-        <div class="brand-mini">Locandine • Prenotazioni • Partecipanti</div>
-      </div>
-    </div>
-    <a class="icon-btn" href="./index.html">🏠</a>
-  </header>
+<section class="card">
+  <h2 class="card-title">Gestione viaggi</h2>
 
-  <main class="container">
-    <h1 class="page-title">Admin</h1>
+  <input id="tripId" type="hidden" />
 
-    <section class="card" id="authBox">
-      <h2 class="card-title">Accesso</h2>
-      <label class="lbl">Password</label>
-      <input id="adminPass" class="in" type="password" />
-      <button id="loginBtn" class="btn" type="button">Entra</button>
-      <div id="adminMsg" class="msg"></div>
-    </section>
+  <label class="lbl">Nome viaggio</label>
+  <input id="tripName" class="in" placeholder="Es. CARNEVALE DI FANO" />
 
-    <div id="panel" class="layout-3" style="display:none;">
-      <section class="card">
-        <h2 class="card-title">Upload locandina</h2>
-        <label class="lbl">Viaggio</label>
-        <select id="posterTrip" class="in"></select>
+  <label class="lbl">Data</label>
+  <input id="tripDate" class="in" type="date" />
 
-        <label class="lbl">Titolo</label>
-        <input id="posterTitle" class="in" placeholder="Titolo locandina"/>
+  <label class="lbl">Partenze (separate da virgola)</label>
+  <textarea id="tripDeparture" class="ta" rows="3"
+    placeholder="SAN NICANDRO, SAN SEVERO, APRICENA..."></textarea>
 
-        <label class="lbl">Immagine</label>
-        <input id="posterFile" class="in" type="file" accept="image/*"/>
+  <label class="lbl">Bus</label>
+  <select id="tripBus" class="in">
+    <option value="GT53">GT53</option>
+    <option value="GT63">GT63</option>
+  </select>
 
-        <button id="uploadPosterBtn" class="btn" type="button">Carica</button>
-        <div id="posterMsg" class="msg"></div>
-      </section>
+  <label class="lbl">Attivo</label>
+  <select id="tripActive" class="in">
+    <option value="true">TRUE</option>
+    <option value="false">FALSE</option>
+  </select>
 
-      <section class="card">
-        <h2 class="card-title">Prenotazioni</h2>
-        <label class="lbl">Filtro viaggio</label>
-        <select id="bookTrip" class="in"></select>
-        <button id="refreshBtn" class="btn ghost" type="button">Aggiorna</button>
-        <div id="stats" class="msg"></div>
-        <hr class="sep"/>
-        <div id="bookingsList" class="msg"></div>
-      </section>
+  <button id="saveTripBtn" class="btn" type="button">Salva viaggio</button>
+  <button id="resetTripBtn" class="btn ghost" type="button">Nuovo / Reset</button>
 
-      <section class="card">
-        <h2 class="card-title">Partecipanti</h2>
-        <div id="participants" class="msg"></div>
-        <hr class="sep"/>
-        <button id="logoutBtn" class="btn ghost" type="button">Esci</button>
-      </section>
-    </div>
-  </main>
+  <div id="tripMsg" class="msg"></div>
 
-  <script type="module" src="./admin.js?v=1"></script>
-</body>
-</html>
+  <hr class="sep" />
+
+  <h3 class="subttl">Viaggi</h3>
+  <div id="tripsList" class="msg">Caricamento...</div>
+</section>
