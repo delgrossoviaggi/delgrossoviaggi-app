@@ -17,33 +17,38 @@ const selectedBox = document.getElementById("selectedSeats");
 let currentTrip = null;
 
 function setMsg(text, ok = true) {
+  if (!msgBox) return;
   msgBox.textContent = text || "";
   msgBox.style.color = ok ? "green" : "crimson";
 }
 
 function normalizeBus(v) {
   const s = (v || "").toString().toUpperCase().replace(/\s+/g, "");
+  if (s === "GT53") return "GT53";
+  if (s === "GT63") return "GT63";
+  // fallback
   if (s.includes("53")) return "GT53";
   if (s.includes("63")) return "GT63";
-  return "";
+  return "GT53";
 }
 
 async function loadTrips() {
   setMsg("");
+
   const { data, error } = await supabase
     .from("percorsi")
-    .select("*")
+    .select("id, viaggio, data, partenza, tipo_bus, attivo")
     .eq("attivo", true)
     .order("data", { ascending: true });
 
   if (error) {
     console.error(error);
-    setMsg("Errore caricamento viaggi (vedi console).", false);
+    setMsg("Errore caricamento viaggi (console).", false);
     return;
   }
 
   tripSelect.innerHTML = `<option value="">Seleziona...</option>`;
-  data.forEach(t => {
+  (data || []).forEach(t => {
     const opt = document.createElement("option");
     opt.value = t.id;
     opt.textContent = `${t.viaggio} — ${t.data} — ${t.partenza}`;
@@ -52,14 +57,23 @@ async function loadTrips() {
     opt.dataset.dep = t.partenza;
     tripSelect.appendChild(opt);
   });
+
+  // opzionale: se c'è almeno un viaggio, lo seleziono automaticamente
+  if ((data || []).length === 1) {
+    tripSelect.value = data[0].id;
+    await onTripChange();
+  }
 }
 
 async function onTripChange() {
   const id = tripSelect.value;
+
   if (!id) {
     currentTrip = null;
     clearSeatmap();
-    selectedBox.textContent = "Nessuno";
+    if (selectedBox) selectedBox.textContent = "Nessuno";
+    await loadPostersForTrip(null);
+    setMsg("");
     return;
   }
 
@@ -70,9 +84,9 @@ async function onTripChange() {
 
   currentTrip = { id, tipo_bus, data, partenza };
 
-  dateInput.value = data;
-  depInput.value = partenza;
-  busSelect.value = tipo_bus;
+  if (dateInput) dateInput.value = data;
+  if (depInput) depInput.value = partenza;
+  if (busSelect) busSelect.value = tipo_bus;
 
   // 1) seatmap
   initSeatmap(tipo_bus);
@@ -81,7 +95,7 @@ async function onTripChange() {
   const occ = await loadOccupiedSeats(id);
   setOccupiedSeats(occ);
 
-  // 3) locandine
+  // 3) locandine (solo del viaggio selezionato)
   await loadPostersForTrip(id);
 
   setMsg("Viaggio caricato ✅");
@@ -94,8 +108,8 @@ bookBtn.addEventListener("click", async () => {
 
   if (!currentTrip?.id) return setMsg("Seleziona prima un viaggio.", false);
 
-  const full_name = fullNameInput.value.trim();
-  const phone = phoneInput.value.trim();
+  const full_name = (fullNameInput?.value || "").trim();
+  const phone = (phoneInput?.value || "").trim();
   const seats = getSelectedSeats();
 
   if (!full_name || !phone) return setMsg("Inserisci Nome e Telefono.", false);
@@ -122,26 +136,8 @@ bookBtn.addEventListener("click", async () => {
   const occ2 = await loadOccupiedSeats(currentTrip.id);
   setOccupiedSeats(occ2);
 
-  selectedBox.textContent = "Nessuno";
+  if (selectedBox) selectedBox.textContent = "Nessuno";
   setMsg("Prenotazione confermata ✅");
-
-  // chiamata WhatsApp (Vercel Function)
-  try {
-    await fetch("/api/notifica-prenotazione", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        percorso_id: currentTrip.id,
-        full_name,
-        phone,
-        seats,
-        data: currentTrip.data,
-        partenza: currentTrip.partenza
-      })
-    });
-  } catch (e) {
-    console.warn("WhatsApp non inviato:", e);
-  }
 });
 
 loadTrips();
