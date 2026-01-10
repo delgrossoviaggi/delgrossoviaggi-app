@@ -1,8 +1,6 @@
 import { supabase } from "./supabase.js";
 
-// ✅ prova a leggere sia "posti_a_sedere" che "posti" (per evitare mismatch)
-const COL_SEATS_A = "posti_a_sedere";
-const COL_SEATS_B = "posti";
+const COL_SEATS = "posti"; // ✅ colonna reale in tabella prenotazioni
 
 function toArray(v) {
   if (!v) return [];
@@ -21,7 +19,7 @@ function toArray(v) {
 export async function loadOccupiedSeats(percorso_id) {
   const { data, error } = await supabase
     .from("prenotazioni")
-    .select(`${COL_SEATS_A},${COL_SEATS_B}`)
+    .select(COL_SEATS)
     .eq("percorso_id", percorso_id);
 
   if (error) {
@@ -29,24 +27,20 @@ export async function loadOccupiedSeats(percorso_id) {
     return [];
   }
 
-  // ✅ DEBUG utile: vedi cosa torna davvero
-  console.log("prenotazioni raw:", data);
-
   const set = new Set();
   (data || []).forEach((r) => {
-    const seats = toArray(r[COL_SEATS_A]).length ? r[COL_SEATS_A] : r[COL_SEATS_B];
-    toArray(seats).forEach((s) => set.add(String(s)));
+    toArray(r[COL_SEATS]).forEach((s) => set.add(String(s)));
   });
 
   return [...set].sort((a, b) => Number(a) - Number(b));
 }
 
-export async function createBooking({ percorso_id, nome_cognome, telefono, posti_a_sedere }) {
+export async function createBooking({ percorso_id, nome_cognome, telefono, posti }) {
   const payload = {
     percorso_id,
     nome_cognome,
     telefono,
-    posti_a_sedere: (posti_a_sedere || []).map(String), // ✅ salva sempre stringhe
+    posti: (posti || []).map(String), // ✅ salva sempre stringhe
   };
 
   const { error } = await supabase.from("prenotazioni").insert(payload);
