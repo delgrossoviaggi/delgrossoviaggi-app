@@ -1,4 +1,4 @@
-import { supabase } from "./supabase.js";
+imimport { supabase } from "./supabase.js";
 import { initSeatmap, getSelectedSeats, setOccupiedSeats, clearSeatmap } from "./seatmap-core.js";
 import { loadOccupiedSeats, createBooking } from "./bookings-store.js";
 import { loadPostersForTrip } from "./locandine.js";
@@ -11,14 +11,12 @@ const busInput = document.getElementById("busType");
 const fullNameInput = document.getElementById("fullName");
 const phoneInput = document.getElementById("phone");
 const bookBtn = document.getElementById("bookBtn");
-
 const msgBox = document.getElementById("msgBox");
 const selectedBox = document.getElementById("selectedSeats");
 
 let currentTrip = null;
 
 function setMsg(text, ok = true) {
-  if (!msgBox) return;
   msgBox.textContent = text || "";
   msgBox.style.color = ok ? "green" : "crimson";
 }
@@ -34,7 +32,6 @@ async function loadTrips() {
   try {
     setMsg("");
 
-    // ✅ tabella corretta: percorsi
     const { data, error } = await supabase
       .from("percorsi")
       .select("id,viaggio,data,partenza,tipo_bus,attivo")
@@ -43,21 +40,20 @@ async function loadTrips() {
 
     if (error) throw error;
 
+    const trips = data || [];
     tripSelect.innerHTML = `<option value="">Seleziona...</option>`;
 
-    if (!data || !data.length) {
-      setMsg("Nessun viaggio attivo in Supabase. Inseriscilo da Admin o Table Editor.", false);
-      clearSeatmap();
-      if (selectedBox) selectedBox.textContent = "Nessuno";
+    if (!trips.length) {
+      setMsg("Nessun viaggio attivo trovato. Inseriscilo da Admin o da SQL.", false);
       return;
     }
 
-    for (const t of data) {
+    for (const t of trips) {
       const opt = document.createElement("option");
       opt.value = t.id;
       opt.textContent = `${t.viaggio} — ${t.data} — ${t.partenza}`;
-      opt.dataset.bus = t.tipo_bus;     // GT53 / GT63
-      opt.dataset.date = t.data;        // YYYY-MM-DD
+      opt.dataset.bus = t.tipo_bus;
+      opt.dataset.date = t.data;
       opt.dataset.dep = t.partenza;
       tripSelect.appendChild(opt);
     }
@@ -77,7 +73,10 @@ async function onTripChange() {
     if (!id) {
       currentTrip = null;
       clearSeatmap();
-      if (selectedBox) selectedBox.textContent = "Nessuno";
+      selectedBox.textContent = "Nessuno";
+      dateInput.value = "";
+      depInput.value = "";
+      busInput.value = "";
       return;
     }
 
@@ -86,27 +85,28 @@ async function onTripChange() {
     const data = opt.dataset.date || "";
     const partenza = opt.dataset.dep || "";
 
-    if (!tipo_bus) {
-      clearSeatmap();
-      return setMsg("Tipo bus non valido (deve essere GT53 o GT63).", false);
-    }
-
     currentTrip = { id, tipo_bus, data, partenza };
 
     dateInput.value = data;
     depInput.value = partenza;
     busInput.value = tipo_bus;
 
-    // 1) seatmap
+    if (!tipo_bus) {
+      clearSeatmap();
+      return setMsg("Tipo bus non valido sul viaggio (usa GT53 o GT63).", false);
+    }
+
+    // 1) Piantina
     initSeatmap(tipo_bus);
 
-    // 2) posti occupati
+    // 2) Occupati
     const occ = await loadOccupiedSeats(id);
     setOccupiedSeats(occ);
 
-    // 3) locandine
+    // 3) Locandine del viaggio
     await loadPostersForTrip(id);
 
+    selectedBox.textContent = "Nessuno";
     setMsg("Viaggio caricato ✅");
   } catch (e) {
     console.error("onTripChange error:", e);
@@ -114,9 +114,9 @@ async function onTripChange() {
   }
 }
 
-tripSelect?.addEventListener("change", onTripChange);
+tripSelect.addEventListener("change", onTripChange);
 
-bookBtn?.addEventListener("click", async () => {
+bookBtn.addEventListener("click", async () => {
   try {
     setMsg("");
 
@@ -129,9 +129,9 @@ bookBtn?.addEventListener("click", async () => {
     if (!full_name || !phone) return setMsg("Inserisci Nome e Telefono.", false);
     if (!seats.length) return setMsg("Seleziona almeno 1 posto.", false);
 
-    // blocco doppia prenotazione
+    // anti-conflitto
     const occ = await loadOccupiedSeats(currentTrip.id);
-    const conflict = seats.find(s => occ.includes(s));
+    const conflict = seats.find((s) => occ.includes(s));
     if (conflict) {
       setOccupiedSeats(occ);
       return setMsg(`Il posto ${conflict} è già occupato. Seleziona altri posti.`, false);
@@ -141,17 +141,15 @@ bookBtn?.addEventListener("click", async () => {
       percorso_id: currentTrip.id,
       nome_cognome: full_name,
       telefono: phone,
-      posti: seats,
-      partenza: currentTrip.partenza
+      posti: seats
     });
 
     if (!res.ok) return setMsg(res.error || "Errore prenotazione.", false);
 
-    // refresh posti occupati
     const occ2 = await loadOccupiedSeats(currentTrip.id);
     setOccupiedSeats(occ2);
 
-    if (selectedBox) selectedBox.textContent = "Nessuno";
+    selectedBox.textContent = "Nessuno";
     setMsg("Prenotazione confermata ✅");
   } catch (e) {
     console.error("booking error:", e);
