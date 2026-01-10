@@ -1,25 +1,24 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="it">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>DelGrosso Viaggi - Prenotazioni Pullman</title>
-  <meta name="description" content="Prenotazioni pullman DelGrosso Viaggi & Limousine Bus" />
+  <title>DelGrosso Viaggi — Prenotazioni</title>
+  <meta name="description" content="Sistema prenotazioni posti pullman DelGrosso Viaggi & Limousine Bus" />
   <link rel="stylesheet" href="./style.css?v=1" />
-  <link rel="icon" href="./assets/favicon.ico" />
 </head>
 
 <body>
-  <!-- HEADER -->
+  <!-- TOP BAR -->
   <header class="topbar">
     <div class="brand">
       <div class="brand-text">
         <div class="brand-title">DelGrosso Viaggi</div>
         <div class="brand-sub">&amp; Limousine Bus</div>
-        <div class="brand-mini">Prenotazioni Pullman</div>
+        <div class="brand-mini">Prenotazioni posti</div>
       </div>
       <div class="brand-logo">
-        <!-- se hai il logo in /public/assets/logo.png -->
+        <!-- opzionale: metti il logo in /public/assets/logo.png -->
         <img src="./assets/logo.png" alt="DelGrosso" onerror="this.style.display='none'">
       </div>
     </div>
@@ -27,15 +26,19 @@
     <a class="icon-btn" href="./admin.html" title="Admin" aria-label="Admin">⚙️</a>
   </header>
 
-  <!-- MAIN -->
+  <!-- PAGE -->
   <main class="container">
     <h1 class="page-title">Prenotazioni</h1>
 
     <div class="layout-3">
       <!-- LOCANDINE -->
       <section class="card">
-        <h2 class="card-title">Locandine</h2>
-        <div id="locandineGrid" class="locandine-grid"></div>
+        <h2 class="card-title">Locandina viaggio</h2>
+
+        <div id="locandineGrid" class="locandine-grid">
+          <div class="msg">Seleziona un viaggio per vedere la locandina.</div>
+        </div>
+
         <div id="locandineMsg" class="msg"></div>
       </section>
 
@@ -48,14 +51,14 @@
           <option value="">Caricamento...</option>
         </select>
 
-        <label class="lbl" for="tripDate">Data viaggio</label>
-        <input id="tripDate" class="in" type="text" readonly placeholder="—">
+        <label class="lbl" for="tripDate">Data</label>
+        <input id="tripDate" class="in" type="text" readonly placeholder="—" />
 
         <label class="lbl" for="departure">Partenza</label>
-        <input id="departure" class="in" type="text" readonly placeholder="—">
+        <input id="departure" class="in" type="text" readonly placeholder="—" />
 
         <label class="lbl" for="busType">Bus</label>
-        <input id="busType" class="in" type="text" readonly placeholder="—">
+        <input id="busType" class="in" type="text" readonly placeholder="—" />
 
         <hr class="sep" />
 
@@ -67,24 +70,83 @@
         <label class="lbl" for="phone">Telefono</label>
         <input id="phone" class="in" type="tel" placeholder="Es. +39..." autocomplete="tel" />
 
-        <div class="selected-box" style="margin-top:12px">
+        <div class="selected-box">
           <div class="selected-title">Posti selezionati</div>
           <div id="selectedSeats" style="font-weight:900">Nessuno</div>
         </div>
 
         <button id="bookBtn" class="btn" type="button">Prenota</button>
-
         <div id="msgBox" class="msg"></div>
       </section>
 
-      <!-- PIANTINA -->
+      <!-- SEATMAP -->
       <section class="card">
         <h2 class="card-title">Piantina posti</h2>
-        <div id="seatmap" class="seatmap"></div>
+        <div id="seatmapMount"></div>
       </section>
     </div>
   </main>
 
+  <!-- MODAL locandina (cliccabile) -->
+  <div id="posterModal" class="modal hidden" aria-hidden="true">
+    <div class="poster-full">
+      <button id="posterClose" class="icon-btn close" type="button" aria-label="Chiudi">✕</button>
+      <img id="posterImg" src="" alt="Locandina">
+      <div class="poster-meta">
+        <div>
+          <div id="posterTitle" class="poster-title">Locandina</div>
+          <div id="posterInfo" class="poster-info"></div>
+        </div>
+        <a id="posterOpen" class="btn ghost" href="#" target="_blank" rel="noopener">Apri</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPT -->
   <script type="module" src="./main.js?v=1"></script>
+
+  <!-- MODAL handler (semplice e robusto) -->
+  <script>
+    (function () {
+      const modal = document.getElementById("posterModal");
+      const closeBtn = document.getElementById("posterClose");
+      const img = document.getElementById("posterImg");
+      const title = document.getElementById("posterTitle");
+      const info = document.getElementById("posterInfo");
+      const open = document.getElementById("posterOpen");
+
+      function openModal({ image_url, titolo, extra } = {}) {
+        if (!image_url) return;
+        img.src = image_url;
+        title.textContent = titolo || "Locandina";
+        info.textContent = extra || "";
+        open.href = image_url;
+
+        modal.classList.remove("hidden");
+        modal.setAttribute("aria-hidden", "false");
+      }
+
+      function closeModal() {
+        modal.classList.add("hidden");
+        modal.setAttribute("aria-hidden", "true");
+        img.src = "";
+      }
+
+      closeBtn?.addEventListener("click", closeModal);
+      modal?.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal();
+      });
+
+      // Evento lanciato da locandine.js oppure da main.js (se lo vuoi usare)
+      window.addEventListener("posterChosen", (e) => {
+        openModal(e.detail || {});
+      });
+
+      // fallback: se clicchi ESC
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeModal();
+      });
+    })();
+  </script>
 </body>
 </html>
