@@ -1,14 +1,16 @@
-<<!doctype html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DelGrosso Viaggi – Prenotazioni</title>
-  <meta name="description" content="Prenotazioni Pullman DelGrosso Viaggi & Limousine Bus" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DelGrosso Viaggi - Prenotazioni Pullman</title>
+  <meta name="description" content="Prenotazioni pullman DelGrosso Viaggi & Limousine Bus" />
   <link rel="stylesheet" href="./style.css?v=1" />
+  <link rel="icon" href="./assets/favicon.ico" />
 </head>
 
 <body>
+  <!-- HEADER -->
   <header class="topbar">
     <div class="brand">
       <div class="brand-text">
@@ -16,12 +18,16 @@
         <div class="brand-sub">&amp; Limousine Bus</div>
         <div class="brand-mini">Prenotazioni Pullman</div>
       </div>
+      <div class="brand-logo">
+        <!-- se hai il logo in /public/assets/logo.png -->
+        <img src="./assets/logo.png" alt="DelGrosso" onerror="this.style.display='none'">
+      </div>
     </div>
 
-    <!-- link admin -->
     <a class="icon-btn" href="./admin.html" title="Admin" aria-label="Admin">⚙️</a>
   </header>
 
+  <!-- MAIN -->
   <main class="container">
     <h1 class="page-title">Prenotazioni</h1>
 
@@ -39,34 +45,35 @@
 
         <label class="lbl" for="tripSelect">Seleziona viaggio</label>
         <select id="tripSelect" class="in">
-          <option value="">Seleziona...</option>
+          <option value="">Caricamento...</option>
         </select>
 
         <label class="lbl" for="tripDate">Data viaggio</label>
-        <input id="tripDate" class="in" type="text" readonly placeholder="—" />
+        <input id="tripDate" class="in" type="text" readonly placeholder="—">
 
         <label class="lbl" for="departure">Partenza</label>
-        <input id="departure" class="in" type="text" readonly placeholder="—" />
+        <input id="departure" class="in" type="text" readonly placeholder="—">
 
         <label class="lbl" for="busType">Bus</label>
-        <input id="busType" class="in" type="text" readonly placeholder="—" />
+        <input id="busType" class="in" type="text" readonly placeholder="—">
 
         <hr class="sep" />
 
         <h2 class="card-title">Prenotazione</h2>
 
         <label class="lbl" for="fullName">Nome e Cognome</label>
-        <input id="fullName" class="in" type="text" placeholder="Es. Mario Rossi" />
+        <input id="fullName" class="in" type="text" placeholder="Es. Mario Rossi" autocomplete="name" />
 
         <label class="lbl" for="phone">Telefono</label>
-        <input id="phone" class="in" type="tel" placeholder="+39..." />
+        <input id="phone" class="in" type="tel" placeholder="Es. +39..." autocomplete="tel" />
 
-        <div class="selected-box">
+        <div class="selected-box" style="margin-top:12px">
           <div class="selected-title">Posti selezionati</div>
-          <div id="selectedSeats">Nessuno</div>
+          <div id="selectedSeats" style="font-weight:900">Nessuno</div>
         </div>
 
         <button id="bookBtn" class="btn" type="button">Prenota</button>
+
         <div id="msgBox" class="msg"></div>
       </section>
 
