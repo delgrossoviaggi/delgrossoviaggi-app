@@ -1,141 +1,123 @@
-/**
- * seatmap-core.js
- * Core "renderer + state" per la piantina posti.
- *
- * Dipende da:
- *  - seatmap-gt53.js
- *  - seatmap-gt63.js
- *
- * Ogni seatmap-gtXX.js può esportare UNO di questi formati:
- *  1) export function getLayout() { return [...rows] }
- *  2) export const LAYOUT = [...rows]
- *  3) export default [...rows]
- *
- * Formato layout atteso (rows):
- *  [
- *    [1, 2, "AISLE", 3, 4, null],
- *    ["DOOR", null, "AISLE", 25, 26, null],
- *    ...
- *  ]
- *
- * Celle possibili:
- *  - numero => posto
- *  - "AISLE" => corridoio
- *  - "DOOR" => porta
- *  - "WC" => bagno
- *  - "DRIVER" => autista
- *  - null => vuoto
- */
+// seatmap-core.js
+import { buildGT53Layout } from "./seatmap-gt53.js";
+import { buildGT63Layout } from "./seatmap-gt63.js";
 
-const ROOT_ID = "seatmap";
+let currentBus = null;
+let selected = new Set();
+let occupied = new Set();
 
-let currentBus = "";
-let selected = new Set(); // string/number seat ids
-let occupied = new Set(); // string/number seat ids
-
-function rootEl() {
-  return document.getElementById(ROOT_ID);
-}
-
-function normalizeSeatId(v) {
-  // seat possono arrivare come number o string. Uniformiamo.
-  if (v === null || v === undefined) return "";
-  const s = String(v).trim();
-  return s;
-}
-
-function sortSeats(arr) {
-  // ordina numeri bene (1,2,10) e lascia eventuali stringhe
-  return arr
-    .map((x) => String(x))
-    .sort((a, b) => {
-      const na = Number(a);
-      const nb = Number(b);
-      const aIsNum = !Number.isNaN(na);
-      const bIsNum = !Number.isNaN(nb);
-      if (aIsNum && bIsNum) return na - nb;
-      if (aIsNum) return -1;
-      if (bIsNum) return 1;
-      return a.localeCompare(b);
-    });
-}
-
-function dispatchSelectionChanged() {
-  window.dispatchEvent(
-    new CustomEvent("seatSelectionChanged", {
-      detail: { seats: getSelectedSeats() },
-    })
+function findMount() {
+  return (
+    document.getElementById("seatmapMount") ||
+    document.getElementById("seatmap") ||
+    document.getElementById("seatmapBox") ||
+    document.getElementById("seatmapContainer")
   );
 }
 
-async function loadLayout(busType) {
-  const bus = String(busType || "").toUpperCase().replace(/\s+/g, "");
-  if (bus !== "GT53" && bus !== "GT63") return null;
+function updateSelectedUI() {
+  const arr = Array.from(selected).sort((a, b) => Number(a) - Number(b));
+  const box = document.getElementById("selectedSeats");
+  if (box) box.textContent = arr.length ? arr.join(", ") : "Nessuno";
 
-  const modPath = bus === "GT53" ? "./seatmap-gt53.js" : "./seatmap-gt63.js";
-  const mod = await import(modPath);
+  // utile a main.js o altre parti se vuoi ascoltare eventi
+  window.dispatchEvent(
+    new CustomEvent("seatSelectionChanged", { detail: { seats: arr } })
+  );
+}
 
-  // Prova: funzione getLayout()
-  if (typeof mod.getLayout === "function") {
-    const res = mod.getLayout();
-    return Array.isArray(res) ? res : null;
+function cellEl(cell) {
+  // AISLE / blank
+  if (!cell) {
+    const d = document.createElement("div");
+    d.className = "blank";
+    return d;
   }
 
-  // Prova: export const LAYOUT
-  if (Array.isArray(mod.LAYOUT)) return mod.LAYOUT;
+  // DOOR
+  if (cell.type === "door") {
+    const d = document.createElement("div");
+    d.className = "cell door";
+    d.textContent = "PORTA";
+    return d;
+  }
 
-  // Prova: export const layout
-  if (Array.isArray(mod.layout)) return mod.layout;
+  // DRIVER (se lo userai in futuro)
+  if (cell.type === "driver") {
+    const d = document.createElement("div");
+    d.className = "cell driver";
+    d.textContent = "GUIDA";
+    return d;
+  }
 
-  // Prova: default export
-  if (Array.isArray(mod.default)) return mod.default;
+  // SEAT
+  if (cell.type === "seat") {
+    const n = String(cell.n);
+    const btn = document.createElement("div");
+    btn.className = "seat";
+    btn.dataset.seat = n;
+    btn.textContent = n;
 
-  return null;
+    if (occupied.has(n)) btn.classList.add("occupied");
+    if (selected.has(n)) btn.classList.add("selected");
+
+    btn.addEventListener("click", () => {
+      if (occupied.has(n)) return;
+
+      if (selected.has(n)) selected.delete(n);
+      else selected.add(n);
+
+      btn.classList.toggle("selected");
+      updateSelectedUI();
+    });
+
+    return btn;
+  }
+
+  // fallback
+  const d = document.createElement("div");
+  d.className = "blank";
+  return d;
 }
 
-function clearRoot() {
-  const el = rootEl();
-  if (!el) return;
-  el.innerHTML = "";
-}
-
-/**
- * RENDER
- */
-function render(layout) {
-  const el = rootEl();
-  if (!el) return;
-
-  el.innerHTML = "";
-
-  if (!layout || !Array.isArray(layout) || !layout.length) {
-    el.innerHTML = `<div class="msg">Piantina non disponibile.</div>`;
+function renderLayout(busType, layout) {
+  const mount = findMount();
+  if (!mount) {
+    console.warn("Seatmap mount non trovato: crea un div con id='seatmapMount' (o seatmap).");
     return;
   }
 
-  // Wrapper coerente con il CSS che mi hai incollato
+  mount.innerHTML = "";
+
+  // wrapper coerente col tuo CSS
   const wrap = document.createElement("div");
-  wrap.className = "coach gt-2x2-door";
+  wrap.className = "seatmap";
+
+  const coach = document.createElement("div");
+  coach.className = `coach gt-2x2-door ${busType === "GT63" ? "gt63" : "gt53"}`;
 
   const head = document.createElement("div");
   head.className = "coach-head";
-  head.innerHTML = `
-    <div>Bus: <b>${currentBus || "-"}</b></div>
-    <div>Seleziona i posti</div>
-  `;
+  head.innerHTML = `<span>Bus: <b>${busType}</b></span><span>Seleziona i posti</span>`;
 
   const grid = document.createElement("div");
   grid.className = "grid";
 
-  // Render cell-by-cell
+  // costruzione righe/colonne
   layout.forEach((row) => {
-    (row || []).forEach((cell) => {
-      const node = renderCell(cell);
-      grid.appendChild(node);
+    // row deve avere 6 celle
+    const fixed = Array.isArray(row) ? row.slice(0, 6) : [null, null, null, null, null, null];
+    while (fixed.length < 6) fixed.push(null);
+
+    fixed.forEach((cell, idx) => {
+      // la colonna 3 (index 2) è corridoio => la lasciamo blank (22px) via CSS
+      const el = cellEl(cell);
+      if (idx === 2) el.classList.add("aisle");
+      grid.appendChild(el);
     });
   });
 
-  // Legend
+  // legenda
   const legend = document.createElement("div");
   legend.className = "legend";
   legend.innerHTML = `
@@ -144,115 +126,51 @@ function render(layout) {
     <span><span class="dot occ"></span> Occupato</span>
   `;
 
-  wrap.appendChild(head);
-  wrap.appendChild(grid);
-  wrap.appendChild(legend);
-  el.appendChild(wrap);
-}
+  coach.appendChild(head);
+  coach.appendChild(grid);
+  coach.appendChild(legend);
+  wrap.appendChild(coach);
+  mount.appendChild(wrap);
 
-function renderCell(cell) {
-  // Corridoio
-  if (cell === "AISLE") {
-    const d = document.createElement("div");
-    d.className = "aisle blank";
-    return d;
-  }
-
-  // Vuoto
-  if (cell === null || cell === undefined || cell === "") {
-    const d = document.createElement("div");
-    d.className = "blank";
-    return d;
-  }
-
-  // Speciali
-  if (cell === "DOOR" || cell === "WC" || cell === "DRIVER") {
-    const d = document.createElement("div");
-    d.className = `cell ${String(cell).toLowerCase()}`;
-    d.textContent = cell === "DOOR" ? "PORTA" : cell === "WC" ? "WC" : "AUTISTA";
-    return d;
-  }
-
-  // Posto (numero o stringa)
-  const seatId = normalizeSeatId(cell);
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "seat";
-  btn.dataset.seat = seatId;
-  btn.textContent = seatId;
-
-  // Stato iniziale
-  if (occupied.has(seatId)) btn.classList.add("occupied");
-  if (selected.has(seatId)) btn.classList.add("selected");
-
-  btn.addEventListener("click", () => {
-    if (occupied.has(seatId)) return;
-
-    if (selected.has(seatId)) {
-      selected.delete(seatId);
-      btn.classList.remove("selected");
-    } else {
-      selected.add(seatId);
-      btn.classList.add("selected");
-    }
-
-    dispatchSelectionChanged();
-  });
-
-  return btn;
+  updateSelectedUI();
 }
 
 /**
- * PUBLIC API
+ * API usata da main.js
  */
-export async function initSeatmap(busType) {
-  currentBus = String(busType || "").toUpperCase().replace(/\s+/g, "");
+export function initSeatmap(busType) {
+  currentBus = busType;
+  selected = new Set(); // reset selezione al cambio viaggio/bus
 
-  selected.clear(); // reset selezione quando cambi bus/viaggio
-  dispatchSelectionChanged();
-
-  const layout = await loadLayout(currentBus);
-
-  if (!layout) {
-    clearRoot();
-    const el = rootEl();
-    if (el) el.innerHTML = `<div class="msg">Errore: layout ${currentBus} mancante.</div>`;
-    return;
+  if (busType === "GT63") {
+    renderLayout("GT63", buildGT63Layout());
+  } else {
+    renderLayout("GT53", buildGT53Layout());
   }
-
-  render(layout);
-}
-
-export function getSelectedSeats() {
-  return sortSeats(Array.from(selected));
-}
-
-export function setOccupiedSeats(seats) {
-  occupied = new Set((seats || []).map(normalizeSeatId));
-
-  // aggiorna UI se già renderizzata
-  const el = rootEl();
-  if (!el) return;
-
-  el.querySelectorAll("[data-seat]").forEach((btn) => {
-    const seatId = btn.getAttribute("data-seat");
-    const isOcc = occupied.has(seatId);
-
-    btn.classList.toggle("occupied", isOcc);
-    if (isOcc) {
-      // se è diventato occupato, non può restare selezionato
-      selected.delete(seatId);
-      btn.classList.remove("selected");
-    }
-  });
-
-  dispatchSelectionChanged();
 }
 
 export function clearSeatmap() {
-  currentBus = "";
-  selected.clear();
-  occupied.clear();
-  clearRoot();
-  dispatchSelectionChanged();
+  currentBus = null;
+  selected = new Set();
+  occupied = new Set();
+  const mount = findMount();
+  if (mount) mount.innerHTML = "";
+  updateSelectedUI();
+}
+
+export function getSelectedSeats() {
+  return Array.from(selected).sort((a, b) => Number(a) - Number(b));
+}
+
+export function setOccupiedSeats(seats) {
+  occupied = new Set((seats || []).map(String));
+
+  // se un posto selezionato è diventato occupato => lo rimuovo
+  selected.forEach((s) => {
+    if (occupied.has(s)) selected.delete(s);
+  });
+
+  // re-render se abbiamo già un bus
+  if (currentBus) initSeatmap(currentBus);
+  updateSelectedUI();
 }
