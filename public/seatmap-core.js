@@ -1,176 +1,91 @@
-// seatmap-core.js
-import { buildGT53Layout } from "./seatmap-gt53.js";
-import { buildGT63Layout } from "./seatmap-gt63.js";
+// public/seatmap-core.js
+import { layoutGT53 } from "./seatmap-gt53.js";
+import { layoutGT63 } from "./seatmap-gt63.js";
 
-let currentBus = null;
 let selected = new Set();
 let occupied = new Set();
+let container = null;
 
-function findMount() {
-  return (
-    document.getElementById("seatmapMount") ||
-    document.getElementById("seatmap") ||
-    document.getElementById("seatmapBox") ||
-    document.getElementById("seatmapContainer")
-  );
-}
+export function initSeatmap(tipoBus) {
+  container = document.getElementById("seatmap");
+  if (!container) return;
 
-function updateSelectedUI() {
-  const arr = Array.from(selected).sort((a, b) => Number(a) - Number(b));
-  const box = document.getElementById("selectedSeats");
-  if (box) box.textContent = arr.length ? arr.join(", ") : "Nessuno";
+  container.innerHTML = "";
+  selected.clear();
+  occupied.clear();
 
-  // utile a main.js o altre parti se vuoi ascoltare eventi
-  window.dispatchEvent(
-    new CustomEvent("seatSelectionChanged", { detail: { seats: arr } })
-  );
-}
+  const layout = tipoBus === "GT63" ? layoutGT63 : layoutGT53;
 
-function cellEl(cell) {
-  // AISLE / blank
-  if (!cell) {
-    const d = document.createElement("div");
-    d.className = "blank";
-    return d;
-  }
+  layout.forEach(row => {
+    const r = document.createElement("div");
+    r.className = "seat-row";
 
-  // DOOR
-  if (cell.type === "door") {
-    const d = document.createElement("div");
-    d.className = "cell door";
-    d.textContent = "PORTA";
-    return d;
-  }
+    row.forEach(cell => {
+      if (cell === "aisle") {
+        const a = document.createElement("div");
+        a.className = "aisle";
+        r.appendChild(a);
+        return;
+      }
 
-  // DRIVER (se lo userai in futuro)
-  if (cell.type === "driver") {
-    const d = document.createElement("div");
-    d.className = "cell driver";
-    d.textContent = "GUIDA";
-    return d;
-  }
+      if (cell === "door") {
+        const d = document.createElement("div");
+        d.className = "door";
+        d.textContent = "🚪";
+        r.appendChild(d);
+        return;
+      }
 
-  // SEAT
-  if (cell.type === "seat") {
-    const n = String(cell.n);
-    const btn = document.createElement("div");
-    btn.className = "seat";
-    btn.dataset.seat = n;
-    btn.textContent = n;
+      const s = document.createElement("div");
+      s.className = "seat";
+      s.textContent = cell;
+      s.dataset.seat = cell;
 
-    if (occupied.has(n)) btn.classList.add("occupied");
-    if (selected.has(n)) btn.classList.add("selected");
+      s.addEventListener("click", () => {
+        const n = Number(cell);
+        if (occupied.has(n)) return;
 
-    btn.addEventListener("click", () => {
-      if (occupied.has(n)) return;
+        if (selected.has(n)) {
+          selected.delete(n);
+          s.classList.remove("selected");
+        } else {
+          selected.add(n);
+          s.classList.add("selected");
+        }
 
-      if (selected.has(n)) selected.delete(n);
-      else selected.add(n);
+        window.dispatchEvent(
+          new CustomEvent("seatsChanged", {
+            detail: [...selected].sort((a, b) => a - b)
+          })
+        );
+      });
 
-      btn.classList.toggle("selected");
-      updateSelectedUI();
+      r.appendChild(s);
     });
 
-    return btn;
-  }
-
-  // fallback
-  const d = document.createElement("div");
-  d.className = "blank";
-  return d;
+    container.appendChild(r);
+  });
 }
 
-function renderLayout(busType, layout) {
-  const mount = findMount();
-  if (!mount) {
-    console.warn("Seatmap mount non trovato: crea un div con id='seatmapMount' (o seatmap).");
-    return;
-  }
+export function setOccupiedSeats(list) {
+  occupied = new Set(list.map(Number));
 
-  mount.innerHTML = "";
-
-  // wrapper coerente col tuo CSS
-  const wrap = document.createElement("div");
-  wrap.className = "seatmap";
-
-  const coach = document.createElement("div");
-  coach.className = `coach gt-2x2-door ${busType === "GT63" ? "gt63" : "gt53"}`;
-
-  const head = document.createElement("div");
-  head.className = "coach-head";
-  head.innerHTML = `<span>Bus: <b>${busType}</b></span><span>Seleziona i posti</span>`;
-
-  const grid = document.createElement("div");
-  grid.className = "grid";
-
-  // costruzione righe/colonne
-  layout.forEach((row) => {
-    // row deve avere 6 celle
-    const fixed = Array.isArray(row) ? row.slice(0, 6) : [null, null, null, null, null, null];
-    while (fixed.length < 6) fixed.push(null);
-
-    fixed.forEach((cell, idx) => {
-      // la colonna 3 (index 2) è corridoio => la lasciamo blank (22px) via CSS
-      const el = cellEl(cell);
-      if (idx === 2) el.classList.add("aisle");
-      grid.appendChild(el);
-    });
+  document.querySelectorAll(".seat").forEach(el => {
+    const n = Number(el.dataset.seat);
+    el.classList.remove("selected");
+    el.classList.toggle("occupied", occupied.has(n));
+    selected.delete(n);
   });
 
-  // legenda
-  const legend = document.createElement("div");
-  legend.className = "legend";
-  legend.innerHTML = `
-    <span><span class="dot"></span> Libero</span>
-    <span><span class="dot sel"></span> Selezionato</span>
-    <span><span class="dot occ"></span> Occupato</span>
-  `;
-
-  coach.appendChild(head);
-  coach.appendChild(grid);
-  coach.appendChild(legend);
-  wrap.appendChild(coach);
-  mount.appendChild(wrap);
-
-  updateSelectedUI();
-}
-
-/**
- * API usata da main.js
- */
-export function initSeatmap(busType) {
-  currentBus = busType;
-  selected = new Set(); // reset selezione al cambio viaggio/bus
-
-  if (busType === "GT63") {
-    renderLayout("GT63", buildGT63Layout());
-  } else {
-    renderLayout("GT53", buildGT53Layout());
-  }
-}
-
-export function clearSeatmap() {
-  currentBus = null;
-  selected = new Set();
-  occupied = new Set();
-  const mount = findMount();
-  if (mount) mount.innerHTML = "";
-  updateSelectedUI();
+  window.dispatchEvent(new CustomEvent("seatsChanged", { detail: [] }));
 }
 
 export function getSelectedSeats() {
-  return Array.from(selected).sort((a, b) => Number(a) - Number(b));
+  return [...selected].sort((a, b) => a - b);
 }
 
-export function setOccupiedSeats(seats) {
-  occupied = new Set((seats || []).map(String));
-
-  // se un posto selezionato è diventato occupato => lo rimuovo
-  selected.forEach((s) => {
-    if (occupied.has(s)) selected.delete(s);
-  });
-
-  // re-render se abbiamo già un bus
-  if (currentBus) initSeatmap(currentBus);
-  updateSelectedUI();
+export function clearSeatmap() {
+  if (container) container.innerHTML = "";
+  selected.clear();
+  occupied.clear();
 }
