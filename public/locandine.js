@@ -11,7 +11,7 @@ export async function loadPostersForTrip(percorso_id) {
 
   const { data, error } = await supabase
     .from("manifesti")
-    .select("id, creato_a, percorso_id, titolo, url_immagine, attivo")
+    .select("id, titolo, url_immagine, viaggio, attivo")
     .eq("attivo", true)
     .eq("percorso_id", percorso_id)
     .order("creato_a", { ascending: false });
