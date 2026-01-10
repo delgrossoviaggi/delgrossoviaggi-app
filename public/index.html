@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>DelGrosso – Prenotazioni</title>
+  <title>DelGrosso — Prenotazioni</title>
 
-  <link rel="stylesheet" href="./style.css?v=1" />
+  <meta name="description" content="Prenotazioni posti pullman DelGrosso Viaggi & Limousine Bus" />
+  <link rel="stylesheet" href="./style.css?v=2" />
 </head>
 
 <body>
@@ -18,18 +19,21 @@
       </div>
     </div>
 
-    <a class="icon-btn" href="./admin.html" title="Admin">⚙️</a>
+    <a class="icon-btn" href="./admin.html" title="Admin" aria-label="Admin">⚙️</a>
   </header>
 
   <main class="container">
     <h1 class="page-title">Prenotazioni</h1>
 
     <div class="layout-3">
-
       <!-- LOCANDINE -->
       <section class="card">
-        <h2 class="card-title">Locandine</h2>
-        <div id="locandineGrid" class="locandine-grid"></div>
+        <h2 class="card-title">Locandina</h2>
+
+        <div id="locandineGrid" class="locandine-grid">
+          <div class="msg">Seleziona un viaggio per vedere la locandina.</div>
+        </div>
+
         <div id="locandineMsg" class="msg"></div>
       </section>
 
@@ -39,10 +43,10 @@
 
         <label class="lbl" for="tripSelect">Seleziona viaggio</label>
         <select id="tripSelect" class="in">
-          <option value="">Seleziona...</option>
+          <option value="">Caricamento...</option>
         </select>
 
-        <label class="lbl" for="tripDate">Data viaggio</label>
+        <label class="lbl" for="tripDate">Data</label>
         <input id="tripDate" class="in" type="text" readonly placeholder="—" />
 
         <label class="lbl" for="departure">Partenza</label>
@@ -56,12 +60,12 @@
         <h2 class="card-title">Prenotazione</h2>
 
         <label class="lbl" for="fullName">Nome e Cognome</label>
-        <input id="fullName" class="in" type="text" placeholder="Es. Mario Rossi" />
+        <input id="fullName" class="in" type="text" placeholder="Es. Mario Rossi" autocomplete="name" />
 
         <label class="lbl" for="phone">Telefono</label>
-        <input id="phone" class="in" type="tel" placeholder="+39..." />
+        <input id="phone" class="in" type="tel" placeholder="+39..." autocomplete="tel" />
 
-        <div class="selected-box" style="margin-top:12px">
+        <div class="selected-box">
           <div class="selected-title">Posti selezionati</div>
           <div id="selectedSeats" style="font-weight:900">Nessuno</div>
         </div>
@@ -73,9 +77,9 @@
       <!-- PIANTINA -->
       <section class="card">
         <h2 class="card-title">Piantina posti</h2>
+        <!-- ⚠️ Deve essere #seatmap perché seatmap-core.js usa questo id -->
         <div id="seatmap" class="seatmap"></div>
       </section>
-
     </div>
 
     <footer style="text-align:center; padding:18px 10px; color:#6b7280; font-size:12px;">
@@ -83,7 +87,7 @@
     </footer>
   </main>
 
-  <!-- JS -->
-  <script type="module" src="./main.js?v=1"></script>
+  <!-- MAIN -->
+  <script type="module" src="./main.js?v=2"></script>
 </body>
 </html>
