@@ -1,23 +1,37 @@
 import { supabase } from "./supabase.js";
 
-export async function loadPosters() {
+// Carica locandine del viaggio selezionato
+export async function loadPostersForTrip(percorsoId) {
   const grid = document.getElementById("locandineGrid");
   const msg = document.getElementById("locandineMsg");
   if (!grid) return;
 
-  const { data, error } = await supabase
-    .from("posters")
-    .select("id,created_at,route_id,title,image_url,active,routes(name)")
-    .eq("active", true)
-    .order("created_at", { ascending: false });
+  if (!percorsoId) {
+    grid.innerHTML = `<div class="msg">Seleziona un viaggio per vedere le locandine.</div>`;
+    if (msg) msg.textContent = "";
+    return;
+  }
 
-  if (error) throw error;
+  const { data, error } = await supabase
+    .from("manifesti")
+    .select("id, creato_a, titolo, url_immagine, attivo")
+    .eq("percorso_id", percorsoId)
+    .eq("attivo", true)
+    .order("creato_a", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    grid.innerHTML = `<div class="msg">Errore caricamento locandine.</div>`;
+    if (msg) msg.textContent = "Errore locandine (console).";
+    if (msg) msg.style.color = "crimson";
+    return;
+  }
 
   const posters = data || [];
   grid.innerHTML = "";
 
   if (!posters.length) {
-    grid.innerHTML = `<div class="msg">Nessuna locandina (caricale da Admin).</div>`;
+    grid.innerHTML = `<div class="msg">Nessuna locandina per questo viaggio.</div>`;
     if (msg) msg.textContent = "";
     return;
   }
@@ -26,12 +40,9 @@ export async function loadPosters() {
     const card = document.createElement("div");
     card.className = "locandina";
     card.innerHTML = `
-      <img src="${p.image_url}" alt="${p.title || "Locandina"}">
-      <div class="cap">${p.title || (p.routes?.name ?? "Locandina")}</div>
+      <img src="${p.url_immagine}" alt="${p.titolo || "Locandina"}">
+      <div class="cap">${p.titolo || "Locandina"}</div>
     `;
-    card.addEventListener("click", () => {
-      window.dispatchEvent(new CustomEvent("posterChosen", { detail: p }));
-    });
     grid.appendChild(card);
   });
 
