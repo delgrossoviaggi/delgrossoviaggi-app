@@ -1,4 +1,5 @@
 // public/seatmap-gt53.js
+e// public/seatmap-gt53.js
 export const layoutGT53 = [
   [1, 2, "aisle", 3, 4],
   [5, 6, "aisle", 7, 8],
@@ -12,5 +13,7 @@ export const layoutGT53 = [
   [37, 38, "aisle", 39, 40],
   [41, 42, "aisle", 43, 44],
   [45, 46, "aisle", 47, 48],
-  [49, 50, 51, 52, 53] // 👈 chiusura
+
+  // 🔒 ULTIMA FILA – CHIUSURA BUS
+  [49, 50, 51, 52, 53]
 ];
