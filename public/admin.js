@@ -1,10 +1,9 @@
 import { supabase } from "./supabase.js";
 
 /**
- * =========================
- * CONFIG
- * =========================
- * Se in Supabase i nomi tabella/colonne sono diversi, cambia SOLO qui.
+ * ==========================================================
+ * CONFIG (allineato al tuo Supabase)
+ * ==========================================================
  */
 const CFG = {
   TABLE_TRIPS: "percorsi",
@@ -12,7 +11,6 @@ const CFG = {
   TABLE_BOOKINGS: "prenotazioni",
   BUCKET_POSTERS: "locandine",
 
-  // colonne tabella "percorsi"
   COL_TRIP: {
     id: "id",
     name: "viaggio",
@@ -23,7 +21,6 @@ const CFG = {
     createdAt: "creato_a",
   },
 
-  // colonne tabella "manifesti"
   COL_POSTER: {
     id: "id",
     tripId: "percorso_id",
@@ -33,21 +30,20 @@ const CFG = {
     createdAt: "creato_a",
   },
 
-  // colonne tabella "prenotazioni"
   COL_BOOK: {
     id: "id",
     tripId: "percorso_id",
     fullName: "nome_cognome",
     phone: "telefono",
-    seats: "posti_a_sedere", // jsonb (array)
+    seats: "posti_a_sedere", // jsonb array
     createdAt: "creato_a",
   },
 };
 
 /**
- * =========================
- * DOM HELPERS
- * =========================
+ * ==========================================================
+ * DOM helpers
+ * ==========================================================
  */
 const $ = (id) => document.getElementById(id);
 
@@ -72,12 +68,33 @@ function safeFileName(name) {
     .slice(0, 120);
 }
 
+function fmtTripLabel(t) {
+  const c = CFG.COL_TRIP;
+  const d = t[c.date] ? String(t[c.date]) : "";
+  return `${t[c.name]} — ${d}`;
+}
+
+function asBool(v) {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "string") return v.toLowerCase() === "true";
+  return !!v;
+}
+
+function seatsToArray(seats) {
+  if (!seats) return [];
+  if (Array.isArray(seats)) return seats;
+  try {
+    const x = JSON.parse(seats);
+    return Array.isArray(x) ? x : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
- * =========================
- * AUTH (semplice)
- * =========================
- * Nota: qui NON usiamo Supabase Auth.
- * Se vuoi renderlo più sicuro dopo, lo facciamo.
+ * ==========================================================
+ * AUTH (semplice lato browser)
+ * ==========================================================
  */
 const authBox = $("authBox");
 const panel = $("panel");
@@ -85,13 +102,15 @@ const adminPass = $("adminPass");
 const loginBtn = $("loginBtn");
 const adminMsg = $("adminMsg");
 
+// 🔒 Cambiala quando vuoi
+const ADMIN_PASSWORD = "1234";
+
 function isLogged() {
   return localStorage.getItem("dg_admin_ok") === "1";
 }
 function setLogged(v) {
   localStorage.setItem("dg_admin_ok", v ? "1" : "0");
 }
-
 function showPanel() {
   if (authBox) authBox.style.display = "none";
   if (panel) panel.style.display = "grid";
@@ -102,7 +121,6 @@ function showLogin() {
 }
 
 function initAuth() {
-  // Se admin.html non ha authBox/panel, non blocchiamo nulla
   if (!authBox || !panel) return;
 
   if (isLogged()) {
@@ -112,26 +130,24 @@ function initAuth() {
     showLogin();
   }
 
-  if (loginBtn && adminPass) {
-    loginBtn.addEventListener("click", () => {
-      const p = (adminPass.value || "").trim();
-      // Password “semplice”: se vuoi la cambiamo, oppure la leggiamo da config.
-      // Per ora: basta inserire QUALSIASI password non vuota.
-      if (!p) return setMsg(adminMsg, "Inserisci la password.", false);
+  loginBtn?.addEventListener("click", async () => {
+    const p = (adminPass?.value || "").trim();
+    if (!p) return setMsg(adminMsg, "Inserisci la password.", false);
+    if (p !== ADMIN_PASSWORD) return setMsg(adminMsg, "Password errata.", false);
 
-      setLogged(true);
-      showPanel();
-      setMsg(adminMsg, "Accesso OK ✅", true);
-      bootAdmin().catch(console.error);
-    });
-  }
+    setLogged(true);
+    showPanel();
+    setMsg(adminMsg, "Accesso OK ✅", true);
+    await bootAdmin();
+  });
 }
 
 /**
- * =========================
- * GESTIONE VIAGGI (CRUD)
- * =========================
+ * ==========================================================
+ * ELEMENTI UI
+ * ==========================================================
  */
+// Viaggi
 const tripId = $("tripId");
 const tripName = $("tripName");
 const tripDate = $("tripDate");
@@ -143,7 +159,7 @@ const resetTripBtn = $("resetTripBtn");
 const tripMsg = $("tripMsg");
 const tripsList = $("tripsList");
 
-// Select viaggi per upload locandina
+// Locandine
 const posterTrip = $("posterTrip");
 const posterTitle = $("posterTitle");
 const posterFile = $("posterFile");
@@ -157,6 +173,11 @@ const bookingsList = $("bookingsList");
 const participantsList = $("participantsList");
 const bookingsMsg = $("bookingsMsg");
 
+/**
+ * ==========================================================
+ * VIAGGI (CRUD)
+ * ==========================================================
+ */
 function resetTripForm() {
   if (tripId) tripId.value = "";
   if (tripName) tripName.value = "";
@@ -167,12 +188,12 @@ function resetTripForm() {
   setMsg(tripMsg, "");
 }
 
-async function loadTrips() {
+async function dbLoadTrips() {
   const c = CFG.COL_TRIP;
 
   const { data, error } = await supabase
     .from(CFG.TABLE_TRIPS)
-    .select(`${c.id},${c.name},${c.date},${c.departure},${c.bus},${c.active}`)
+    .select(`${c.id},${c.name},${c.date},${c.departure},${c.bus},${c.active},${c.createdAt}`)
     .order(c.date, { ascending: true });
 
   if (error) throw error;
@@ -187,20 +208,22 @@ function renderTripsList(trips) {
     return;
   }
 
+  const c = CFG.COL_TRIP;
+
   tripsList.innerHTML = trips
     .map((t) => {
-      const c = CFG.COL_TRIP;
+      const active = asBool(t[c.active]);
       return `
       <div class="selected-box" style="margin-top:10px">
         <div style="font-weight:900">${t[c.name]} — ${t[c.date] || ""}</div>
         <div style="font-size:12px;color:#6b7280;margin-top:4px">
           Partenze: ${t[c.departure] || "-"}<br>
-          Bus: <b>${t[c.bus] || "-"}</b> — Attivo: <b>${t[c.active] ? "TRUE" : "FALSE"}</b>
+          Bus: <b>${t[c.bus] || "-"}</b> — Attivo: <b>${active ? "TRUE" : "FALSE"}</b>
         </div>
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
           <button class="btn ghost" data-edit="${t[c.id]}" type="button">Modifica</button>
-          <button class="btn" data-toggle="${t[c.id]}" data-attivo="${t[c.active] ? "true" : "false"}" type="button">
-            ${t[c.active] ? "Disattiva" : "Attiva"}
+          <button class="btn" data-toggle="${t[c.id]}" data-active="${active ? "true" : "false"}" type="button">
+            ${active ? "Disattiva" : "Attiva"}
           </button>
         </div>
       </div>`;
@@ -210,16 +233,15 @@ function renderTripsList(trips) {
   tripsList.querySelectorAll("[data-edit]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-edit");
-      const c = CFG.COL_TRIP;
       const t = trips.find((x) => x[c.id] === id);
       if (!t) return;
 
-      if (tripId) tripId.value = t[c.id];
-      if (tripName) tripName.value = t[c.name] || "";
-      if (tripDate) tripDate.value = t[c.date] || "";
-      if (tripDeparture) tripDeparture.value = t[c.departure] || "";
-      if (tripBus) tripBus.value = normalizeBus(t[c.bus]);
-      if (tripActive) tripActive.value = String(!!t[c.active]);
+      tripId.value = t[c.id];
+      tripName.value = t[c.name] || "";
+      tripDate.value = t[c.date] || "";
+      tripDeparture.value = t[c.departure] || "";
+      tripBus.value = normalizeBus(t[c.bus]);
+      tripActive.value = String(asBool(t[c.active]));
 
       setMsg(tripMsg, "Modifica viaggio pronta ✅", true);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -229,22 +251,23 @@ function renderTripsList(trips) {
   tripsList.querySelectorAll("[data-toggle]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const id = btn.getAttribute("data-toggle");
-      const curr = btn.getAttribute("data-attivo") === "true";
+      const curr = btn.getAttribute("data-active") === "true";
       const next = !curr;
 
-      const c = CFG.COL_TRIP;
-      const { error } = await supabase
-        .from(CFG.TABLE_TRIPS)
-        .update({ [c.active]: next })
-        .eq(c.id, id);
+      try {
+        const { error } = await supabase
+          .from(CFG.TABLE_TRIPS)
+          .update({ [c.active]: next })
+          .eq(c.id, id);
 
-      if (error) {
-        console.error(error);
-        return setMsg(tripMsg, "Errore cambio stato (vedi console).", false);
+        if (error) throw error;
+
+        setMsg(tripMsg, "Stato aggiornato ✅", true);
+        await refreshAll();
+      } catch (e) {
+        console.error(e);
+        setMsg(tripMsg, "Errore cambio stato (vedi console).", false);
       }
-
-      setMsg(tripMsg, "Stato aggiornato ✅", true);
-      await refreshAll();
     });
   });
 }
@@ -264,27 +287,28 @@ async function saveTrip() {
     return setMsg(tripMsg, "Compila: Nome viaggio, Data, Partenze.", false);
   }
 
-  let res;
-  if (tripId?.value) {
-    res = await supabase.from(CFG.TABLE_TRIPS).update(payload).eq(c.id, tripId.value);
-  } else {
-    res = await supabase.from(CFG.TABLE_TRIPS).insert(payload);
-  }
+  try {
+    if (tripId?.value) {
+      const { error } = await supabase.from(CFG.TABLE_TRIPS).update(payload).eq(c.id, tripId.value);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from(CFG.TABLE_TRIPS).insert(payload);
+      if (error) throw error;
+    }
 
-  if (res.error) {
-    console.error(res.error);
-    return setMsg(tripMsg, "Errore salvataggio (vedi console).", false);
+    setMsg(tripMsg, "Viaggio salvato ✅", true);
+    resetTripForm();
+    await refreshAll();
+  } catch (e) {
+    console.error(e);
+    setMsg(tripMsg, "Errore salvataggio (vedi console).", false);
   }
-
-  setMsg(tripMsg, "Viaggio salvato ✅", true);
-  resetTripForm();
-  await refreshAll();
 }
 
 /**
- * =========================
- * SELECT VIAGGI (usato per locandine e prenotazioni)
- * =========================
+ * ==========================================================
+ * SELECT viaggi (usati in locandine e prenotazioni)
+ * ==========================================================
  */
 function fillTripSelect(selectEl, trips, placeholder = "Seleziona...") {
   if (!selectEl) return;
@@ -294,17 +318,15 @@ function fillTripSelect(selectEl, trips, placeholder = "Seleziona...") {
   trips.forEach((t) => {
     const opt = document.createElement("option");
     opt.value = t[c.id];
-    opt.textContent = `${t[c.name]} — ${t[c.date] || ""}`;
-    opt.dataset.bus = t[c.bus] || "";
-    opt.dataset.dep = t[c.departure] || "";
+    opt.textContent = fmtTripLabel(t);
     selectEl.appendChild(opt);
   });
 }
 
 /**
- * =========================
+ * ==========================================================
  * LOCANDINE (upload + lista)
- * =========================
+ * ==========================================================
  */
 async function uploadPoster() {
   const p = CFG.COL_POSTER;
@@ -318,134 +340,123 @@ async function uploadPoster() {
 
   setMsg(posterMsg, "Caricamento...", true);
 
-  // 1) Upload su Storage
-  const filename = `${trip_id}/${Date.now()}-${safeFileName(file.name)}`;
+  try {
+    // 1) Upload su Storage
+    const filename = `${trip_id}/${Date.now()}-${safeFileName(file.name)}`;
 
-  const up = await supabase.storage.from(CFG.BUCKET_POSTERS).upload(filename, file, {
-    cacheControl: "3600",
-    upsert: false,
-    contentType: file.type || "image/jpeg",
-  });
+    const up = await supabase.storage.from(CFG.BUCKET_POSTERS).upload(filename, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type || "image/jpeg",
+    });
 
-  if (up.error) {
-    console.error(up.error);
-    return setMsg(posterMsg, "Errore upload su Storage (vedi console).", false);
+    if (up.error) throw up.error;
+
+    // 2) URL pubblico
+    const pub = supabase.storage.from(CFG.BUCKET_POSTERS).getPublicUrl(filename);
+    const imageUrl = pub?.data?.publicUrl;
+    if (!imageUrl) throw new Error("URL pubblico non disponibile");
+
+    // 3) Inserisci in tabella manifesti
+    const payload = {
+      [p.tripId]: trip_id,
+      [p.title]: title || "Locandina",
+      [p.imageUrl]: imageUrl,
+      [p.active]: true,
+    };
+
+    const ins = await supabase.from(CFG.TABLE_POSTERS).insert(payload);
+    if (ins.error) throw ins.error;
+
+    setMsg(posterMsg, "Locandina caricata ✅", true);
+    if (posterTitle) posterTitle.value = "";
+    if (posterFile) posterFile.value = "";
+    await refreshAll();
+  } catch (e) {
+    console.error("UPLOAD LOCANDINA ERROR:", e);
+    // messaggio più utile
+    const hint =
+      (e?.message || "").includes("row-level security") ? " (RLS: controlla policy!)" : "";
+    setMsg(posterMsg, `Errore DB locandina${hint} (vedi console).`, false);
   }
-
-  // 2) URL pubblico
-  const pub = supabase.storage.from(CFG.BUCKET_POSTERS).getPublicUrl(filename);
-  const imageUrl = pub?.data?.publicUrl;
-
-  if (!imageUrl) {
-    return setMsg(posterMsg, "Errore: URL pubblico non disponibile.", false);
-  }
-
-  // 3) Salva riga in tabella manifesti
-  const payload = {
-    [p.tripId]: trip_id,
-    [p.title]: title || "Locandina",
-    [p.imageUrl]: imageUrl,
-    [p.active]: true,
-  };
-
-  const ins = await supabase.from(CFG.TABLE_POSTERS).insert(payload);
-
-  if (ins.error) {
-    console.error(ins.error);
-    return setMsg(posterMsg, "Errore DB locandina (vedi console).", false);
-  }
-
-  setMsg(posterMsg, "Locandina caricata ✅", true);
-  if (posterTitle) posterTitle.value = "";
-  if (posterFile) posterFile.value = "";
-  await refreshAll();
 }
 
 async function loadPostersAdmin() {
   if (!postersList) return;
 
   const p = CFG.COL_POSTER;
-  const c = CFG.COL_TRIP;
 
-  const { data, error } = await supabase
-    .from(CFG.TABLE_POSTERS)
-    .select(`${p.id},${p.tripId},${p.title},${p.imageUrl},${p.active},${p.createdAt}`)
-    .order(p.createdAt, { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from(CFG.TABLE_POSTERS)
+      .select(`${p.id},${p.tripId},${p.title},${p.imageUrl},${p.active},${p.createdAt}`)
+      .order(p.createdAt, { ascending: false });
 
-  if (error) {
-    console.error(error);
-    postersList.innerHTML = `<div class="msg">Errore caricamento locandine (console).</div>`;
-    return;
-  }
+    if (error) throw error;
 
-  const posters = data || [];
-  if (!posters.length) {
-    postersList.innerHTML = `<div class="msg">Nessuna locandina caricata.</div>`;
-    return;
-  }
+    const posters = data || [];
+    if (!posters.length) {
+      postersList.innerHTML = `<div class="msg">Nessuna locandina caricata.</div>`;
+      return;
+    }
 
-  postersList.innerHTML = posters
-    .map((x) => {
-      return `
-      <div class="selected-box" style="margin-top:10px">
-        <div style="display:flex;gap:10px;align-items:center">
-          <img src="${x[p.imageUrl]}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:12px;border:1px solid rgba(15,23,42,.12)" />
-          <div style="flex:1">
-            <div style="font-weight:900">${x[p.title] || "Locandina"}</div>
-            <div style="font-size:12px;color:#6b7280;margin-top:2px">
-              Attivo: <b>${x[p.active] ? "TRUE" : "FALSE"}</b>
+    postersList.innerHTML = posters
+      .map((x) => {
+        const active = asBool(x[p.active]);
+        return `
+        <div class="selected-box" style="margin-top:10px">
+          <div style="display:flex;gap:10px;align-items:center">
+            <img src="${x[p.imageUrl]}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:12px;border:1px solid rgba(15,23,42,.12)" />
+            <div style="flex:1">
+              <div style="font-weight:900">${x[p.title] || "Locandina"}</div>
+              <div style="font-size:12px;color:#6b7280;margin-top:2px">
+                Attivo: <b>${active ? "TRUE" : "FALSE"}</b>
+              </div>
             </div>
           </div>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-          <button class="btn" data-poster-toggle="${x[p.id]}" data-active="${x[p.active] ? "true" : "false"}" type="button">
-            ${x[p.active] ? "Disattiva" : "Attiva"}
-          </button>
-        </div>
-      </div>
-      `;
-    })
-    .join("");
 
-  postersList.querySelectorAll("[data-poster-toggle]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const id = btn.getAttribute("data-poster-toggle");
-      const curr = btn.getAttribute("data-active") === "true";
-      const next = !curr;
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+            <button class="btn" data-poster-toggle="${x[p.id]}" data-active="${active ? "true" : "false"}" type="button">
+              ${active ? "Disattiva" : "Attiva"}
+            </button>
+          </div>
+        </div>`;
+      })
+      .join("");
 
-      const { error } = await supabase
-        .from(CFG.TABLE_POSTERS)
-        .update({ [p.active]: next })
-        .eq(p.id, id);
+    postersList.querySelectorAll("[data-poster-toggle]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-poster-toggle");
+        const curr = btn.getAttribute("data-active") === "true";
+        const next = !curr;
 
-      if (error) {
-        console.error(error);
-        return setMsg(posterMsg, "Errore cambio stato locandina (console).", false);
-      }
+        try {
+          const { error } = await supabase
+            .from(CFG.TABLE_POSTERS)
+            .update({ [p.active]: next })
+            .eq(p.id, id);
 
-      setMsg(posterMsg, "Locandina aggiornata ✅", true);
-      await refreshAll();
+          if (error) throw error;
+
+          setMsg(posterMsg, "Locandina aggiornata ✅", true);
+          await refreshAll();
+        } catch (e) {
+          console.error(e);
+          setMsg(posterMsg, "Errore cambio stato locandina (console).", false);
+        }
+      });
     });
-  });
+  } catch (e) {
+    console.error(e);
+    postersList.innerHTML = `<div class="msg">Errore caricamento locandine (console).</div>`;
+  }
 }
 
 /**
- * =========================
+ * ==========================================================
  * PRENOTAZIONI + PARTECIPANTI
- * =========================
+ * ==========================================================
  */
-function countSeats(seats) {
-  if (!seats) return 0;
-  if (Array.isArray(seats)) return seats.length;
-  // se arrivasse come stringa JSON
-  try {
-    const arr = JSON.parse(seats);
-    return Array.isArray(arr) ? arr.length : 0;
-  } catch {
-    return 0;
-  }
-}
-
 async function loadBookingsForTrip(trip_id) {
   const b = CFG.COL_BOOK;
 
@@ -460,65 +471,62 @@ async function loadBookingsForTrip(trip_id) {
 }
 
 function renderBookings(bookings) {
+  // Prenotazioni
   if (bookingsList) {
     if (!bookings.length) {
       bookingsList.innerHTML = `<div class="msg">Nessuna prenotazione per questo viaggio.</div>`;
     } else {
       bookingsList.innerHTML = bookings
         .map((x) => {
-          const seatsN = countSeats(x[CFG.COL_BOOK.seats]);
-          const seatsTxt = Array.isArray(x[CFG.COL_BOOK.seats])
-            ? x[CFG.COL_BOOK.seats].join(", ")
-            : String(x[CFG.COL_BOOK.seats] || "");
-
+          const seatsArr = seatsToArray(x[CFG.COL_BOOK.seats]);
+          const seatsTxt = seatsArr.length ? seatsArr.join(", ") : "-";
           return `
-            <div class="selected-box" style="margin-top:10px">
-              <div style="font-weight:900">${x[CFG.COL_BOOK.fullName] || "-"}</div>
-              <div style="font-size:12px;color:#6b7280;margin-top:4px">
-                Tel: ${x[CFG.COL_BOOK.phone] || "-"}<br>
-                Posti (${seatsN}): <b>${seatsTxt || "-"}</b>
-              </div>
+          <div class="selected-box" style="margin-top:10px">
+            <div style="font-weight:900">${x[CFG.COL_BOOK.fullName] || "-"}</div>
+            <div style="font-size:12px;color:#6b7280;margin-top:4px">
+              Tel: ${x[CFG.COL_BOOK.phone] || "-"}<br />
+              Posti (${seatsArr.length}): <b>${seatsTxt}</b>
             </div>
-          `;
+          </div>`;
         })
         .join("");
     }
   }
 
+  // Partecipanti (riassunto)
   if (participantsList) {
-    // lista partecipanti "pulita"
     const rows = bookings
       .map((x) => ({
         name: x[CFG.COL_BOOK.fullName] || "",
         phone: x[CFG.COL_BOOK.phone] || "",
-        seats: Array.isArray(x[CFG.COL_BOOK.seats]) ? x[CFG.COL_BOOK.seats] : [],
+        seats: seatsToArray(x[CFG.COL_BOOK.seats]),
       }))
       .filter((x) => x.name);
 
     if (!rows.length) {
       participantsList.innerHTML = `<div class="msg">Nessun partecipante.</div>`;
-    } else {
-      const totalSeats = rows.reduce((sum, r) => sum + (r.seats?.length || 0), 0);
-
-      participantsList.innerHTML = `
-        <div class="msg" style="margin-bottom:10px">
-          Partecipanti: <b>${rows.length}</b> — Posti totali: <b>${totalSeats}</b>
-        </div>
-        ${rows
-          .map(
-            (r) => `
-          <div class="selected-box" style="margin-top:10px">
-            <div style="font-weight:900">${r.name}</div>
-            <div style="font-size:12px;color:#6b7280;margin-top:4px">
-              Tel: ${r.phone || "-"}<br>
-              Posti: <b>${(r.seats || []).join(", ") || "-"}</b>
-            </div>
-          </div>
-        `
-          )
-          .join("")}
-      `;
+      return;
     }
+
+    const totalSeats = rows.reduce((sum, r) => sum + (r.seats?.length || 0), 0);
+
+    participantsList.innerHTML = `
+      <div class="msg" style="margin-bottom:10px">
+        Partecipanti: <b>${rows.length}</b> — Posti totali: <b>${totalSeats}</b>
+      </div>
+      ${rows
+        .map(
+          (r) => `
+        <div class="selected-box" style="margin-top:10px">
+          <div style="font-weight:900">${r.name}</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:4px">
+            Tel: ${r.phone || "-"}<br />
+            Posti: <b>${r.seats.length ? r.seats.join(", ") : "-"}</b>
+          </div>
+        </div>`
+        )
+        .join("")}
+    `;
   }
 }
 
@@ -530,6 +538,7 @@ async function onBookingsTripChange() {
   }
 
   setMsg(bookingsMsg, "Caricamento prenotazioni...", true);
+
   try {
     const bookings = await loadBookingsForTrip(bookingsTrip.value);
     renderBookings(bookings);
@@ -541,55 +550,53 @@ async function onBookingsTripChange() {
 }
 
 /**
- * =========================
- * REFRESH UNICO (evita caos)
- * =========================
+ * ==========================================================
+ * REFRESH unico (riempie select + liste)
+ * ==========================================================
  */
 async function refreshAll() {
-  const trips = await loadTrips();
+  const trips = await dbLoadTrips();
 
-  // lista viaggi
   renderTripsList(trips);
-
-  // select per upload locandine
   fillTripSelect(posterTrip, trips, "Seleziona viaggio...");
-  // select per prenotazioni
   fillTripSelect(bookingsTrip, trips, "Seleziona viaggio...");
 
-  // locandine list
   await loadPostersAdmin();
 
-  // se c'è un viaggio selezionato in prenotazioni, ricarica
   if (bookingsTrip?.value) {
     await onBookingsTripChange();
   }
 }
 
 /**
- * =========================
+ * ==========================================================
  * BOOT
- * =========================
+ * ==========================================================
  */
 async function bootAdmin() {
-  // eventi viaggi
-  saveTripBtn?.addEventListener("click", () => saveTrip().catch(console.error));
+  // Viaggi
+  saveTripBtn?.addEventListener("click", () => saveTrip());
   resetTripBtn?.addEventListener("click", resetTripForm);
 
-  // eventi locandine
-  uploadPosterBtn?.addEventListener("click", () => uploadPoster().catch(console.error));
+  // Locandine
+  uploadPosterBtn?.addEventListener("click", () => uploadPoster());
 
-  // eventi prenotazioni
-  bookingsTrip?.addEventListener("change", () => onBookingsTripChange().catch(console.error));
+  // Prenotazioni
+  bookingsTrip?.addEventListener("change", () => onBookingsTripChange());
 
-  // carica tutto
+  // Carica tutto
   await refreshAll();
 }
 
-// init
+/**
+ * INIT
+ */
 initAuth();
 
-// se non c'è authBox/panel (o se già loggato), avvia
-if (!authBox || !panel || isLogged()) {
+if (!authBox || !panel) {
+  // se non esiste login UI, comunque avviamo
+  bootAdmin().catch(console.error);
+} else if (isLogged()) {
   showPanel();
   bootAdmin().catch(console.error);
 }
