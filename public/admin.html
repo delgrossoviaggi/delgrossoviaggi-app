@@ -1,10 +1,14 @@
- <!DOCTYPE html>
+<!doctype html>
 <html lang="it">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>DelGrosso — Admin</title>
+  <title>DelGrosso – Admin</title>
+
   <link rel="stylesheet" href="./style.css?v=1" />
+
+  <!-- XLSX per export Excel vero -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
@@ -17,7 +21,10 @@
       </div>
     </div>
 
-    <a class="icon-btn" href="./index.html" title="Vai alla Home">🏠</a>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <a class="icon-btn" href="./index.html" title="Torna alla Home">🏠</a>
+      <button class="icon-btn" id="logoutBtn" type="button" title="Logout" style="display:none;">🚪</button>
+    </div>
   </header>
 
   <main class="container">
@@ -26,23 +33,22 @@
     <!-- LOGIN -->
     <section class="card" id="authBox">
       <h2 class="card-title">Accesso</h2>
-
       <label class="lbl" for="adminPass">Password</label>
-      <input id="adminPass" class="in" type="password" placeholder="Inserisci password" />
-
+      <input id="adminPass" class="in" type="password" placeholder="Password admin" />
       <button id="loginBtn" class="btn" type="button">Entra</button>
       <div id="adminMsg" class="msg"></div>
+      <hr class="sep" />
       <div class="msg" style="color:#6b7280">
-        Nota: è un accesso “semplice” (localStorage). Se vuoi sicurezza vera, lo facciamo con Supabase Auth.
+        Suggerimento: dopo l’accesso puoi gestire <b>viaggi</b>, <b>locandine</b> e vedere <b>prenotazioni</b> / <b>partecipanti</b>.
       </div>
     </section>
 
-    <!-- PANNELLO -->
+    <!-- PANEL -->
     <div id="panel" class="layout-3" style="display:none">
 
       <!-- VIAGGI -->
       <section class="card">
-        <h2 class="card-title">Gestione viaggi</h2>
+        <h2 class="card-title">Viaggi</h2>
 
         <input id="tripId" type="hidden" />
 
@@ -52,13 +58,13 @@
         <label class="lbl" for="tripDate">Data (YYYY-MM-DD)</label>
         <input id="tripDate" class="in" type="date" />
 
-        <label class="lbl" for="tripDeparture">Partenze (testo)</label>
-        <input id="tripDeparture" class="in" type="text" placeholder="Es. SAN NICANDRO, SAN SEVERO, ..." />
+        <label class="lbl" for="tripDeparture">Partenze</label>
+        <input id="tripDeparture" class="in" type="text" placeholder="Es. SAN NICANDRO, SAN SEVERO..." />
 
         <label class="lbl" for="tripBus">Bus</label>
         <select id="tripBus" class="in">
-          <option value="GT53">GT53</option>
-          <option value="GT63">GT63</option>
+          <option value="GT53">GT 53</option>
+          <option value="GT63">GT 63</option>
         </select>
 
         <label class="lbl" for="tripActive">Attivo</label>
@@ -68,12 +74,12 @@
         </select>
 
         <button id="saveTripBtn" class="btn" type="button">Salva viaggio</button>
-        <button id="resetTripBtn" class="btn ghost" type="button">Pulisci</button>
+        <button id="resetTripBtn" class="btn ghost" type="button">Nuovo / Reset</button>
 
         <div id="tripMsg" class="msg"></div>
 
         <hr class="sep" />
-        <div class="card-title" style="font-size:14px;margin:0 0 8px;">Viaggi inseriti</div>
+        <div class="card-title" style="font-size:16px">Elenco viaggi</div>
         <div id="tripsList"></div>
       </section>
 
@@ -85,7 +91,7 @@
         <select id="posterTrip" class="in"></select>
 
         <label class="lbl" for="posterTitle">Titolo</label>
-        <input id="posterTitle" class="in" type="text" placeholder="Es. CARNEVALE FANO 2026" />
+        <input id="posterTitle" class="in" type="text" placeholder="Titolo locandina" />
 
         <label class="lbl" for="posterFile">Immagine</label>
         <input id="posterFile" class="in" type="file" accept="image/*" />
@@ -94,34 +100,39 @@
         <div id="posterMsg" class="msg"></div>
 
         <hr class="sep" />
-        <div class="card-title" style="font-size:14px;margin:0 0 8px;">Locandine caricate</div>
+        <div class="card-title" style="font-size:16px">Locandine caricate</div>
         <div id="postersList"></div>
       </section>
 
-      <!-- PRENOTAZIONI + PARTECIPANTI -->
+      <!-- PRENOTAZIONI / PARTECIPANTI -->
       <section class="card">
-        <h2 class="card-title">Prenotazioni &amp; Partecipanti</h2>
+        <h2 class="card-title">Prenotazioni &amp; partecipanti</h2>
 
         <label class="lbl" for="bookingsTrip">Viaggio</label>
         <select id="bookingsTrip" class="in"></select>
 
-        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-          <button id="exportBookingsBtn" class="btn ghost" type="button" style="flex:1;min-width:220px">Export prenotazioni (CSV)</button>
-          <button id="exportParticipantsBtn" class="btn" type="button" style="flex:1;min-width:220px">Export partecipanti (Excel CSV)</button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+          <button id="copyPhonesBtn" class="btn ghost" type="button" style="width:auto">Copia telefoni</button>
+          <button id="copyPeopleBtn" class="btn ghost" type="button" style="width:auto">Copia partecipanti</button>
+          <button id="exportXlsxBtn" class="btn" type="button" style="width:auto">Export Excel (XLSX)</button>
         </div>
 
         <div id="bookingsMsg" class="msg"></div>
 
         <hr class="sep" />
-        <div class="card-title" style="font-size:14px;margin:0 0 8px;">Prenotazioni</div>
+        <div class="card-title" style="font-size:16px">Prenotazioni</div>
         <div id="bookingsList"></div>
 
         <hr class="sep" />
-        <div class="card-title" style="font-size:14px;margin:0 0 8px;">Lista partecipanti</div>
+        <div class="card-title" style="font-size:16px">Partecipanti</div>
         <div id="participantsList"></div>
       </section>
 
     </div>
+
+    <footer style="text-align:center; padding:18px 10px; color:#6b7280; font-size:12px;">
+      © DELGROSSO VIAGGI &amp; LIMOUSINE BUS 2026
+    </footer>
   </main>
 
   <script type="module" src="./admin.js?v=1"></script>
