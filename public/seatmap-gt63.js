@@ -1,22 +1,34 @@
-// public/seatmap-gt63.js
-export const layoutGT63 = [
-  [1, 2, "aisle", 3, 4],
-  [5, 6, "aisle", 7, 8],
-  [9, 10, "aisle", 11, 12],
-  [13, 14, "aisle", 15, 16],
-  [17, 18, "aisle", 19, 20],
-  [21, 22, "aisle", 23, 24],
-  [25, 26, "aisle", 27, "door", 28],
+export function buildLayout() {
+  const S = (n) => ({ type: "seat", n });
+  const B = () => ({ type: "blank" });
+  const A = () => ({ type: "aisle" });
+  const D = () => ({ type: "door" });
 
-  [29, 30, "aisle", 31, 32],
-  [33, 34, "aisle", 35, 36],
-  [37, 38, "aisle", 39, 40],
-  [41, 42, "aisle", 43, 44],
-  [45, 46, "aisle", 47, 48],
-  [49, 50, "aisle", 51, 52],
-  [53, 54, "aisle", 55, 56],
-  [57, 58, "aisle"],
+  const rows = [];
 
-  // 🔒 ULTIMA FILA – CHIUSURA BUS
-  [59, 60, 61, 62, 63]
-];
+  // Prime righe fino a 26 in 2+2
+  let n = 1;
+  for (let i = 0; i < 6; i++) {
+    rows.push([S(n++), S(n++), A(), S(n++), S(n++), B()]); // 24 posti
+  }
+  // riga successiva: 25-26 + corridoio + (blank) + porta lato
+  rows.push([S(25), S(26), A(), B(), B(), B()]);
+
+  // Richiesta: i posti 27-28 passano a sinistra, a destra c'è la porta
+  rows.push([S(27), S(28), A(), B(), B(), D()]);
+
+  // Poi continua la numerazione da 29 in poi
+  n = 29;
+  // Metto righe standard finché arrivo a 58 (30 posti: 29..58 -> 30 posti)
+  // 7 righe * 4 = 28 posti (29..56), poi una riga con 57..58 e due blank
+  for (let i = 0; i < 7; i++) {
+    rows.push([S(n++), S(n++), A(), S(n++), S(n++), B()]);
+  }
+  // Ora n dovrebbe essere 57
+  rows.push([S(57), S(58), A(), B(), B(), B()]);
+
+  // Ultimi 5 posti 59-63 ALLINEATI
+  rows.push([S(59), S(60), S(61), S(62), S(63), B()]);
+
+  return rows;
+}
